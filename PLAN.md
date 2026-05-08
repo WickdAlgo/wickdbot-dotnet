@@ -193,11 +193,20 @@ Every journal record carries `runId`, `marketId`, and `timeframe`.
 - For bullish setups, either candle may sweep sell-side liquidity using its lower wick.
 - For bearish setups, either candle may sweep buy-side liquidity using its upper wick.
 - Wick breach is enough. A close through the liquidity level is not required.
+- Initial sweep source is journaled as an enum-like type:
+  - `ObCandleSweep`: the selected OB candle performs the direction-specific initial sweep.
+  - `PostObDisplacementSweep`: the candle after the OB / displacement candle performs the direction-specific initial sweep.
+- Both initial sweep source types belong to the same OB strategy family.
 - Journal all initial sweeps.
 - Mark a deterministic primary sweep by most recent/nearest swept liquidity.
 
 ### Expansion and FVG
 
+- Displacement confirmation is journaled as an enum-like type:
+  - `SingleExpansionFvg`: MVP mode. A qualifying single expansion candle is directly tied to a classic three-candle FVG.
+  - `MultiCandleImpulse`: future extension mode. Displacement unfolds across a multi-candle impulse away from the OB.
+- MVP implementation supports `SingleExpansionFvg`.
+- `MultiCandleImpulse` is tracked through golden samples and future work, but is not MVP-blocking.
 - Expansion uses recent average full candle range as the denominator.
 - Recent average range uses only prior candles and excludes the expansion candidate.
 - Insufficient lookback means no expansion qualification yet.
@@ -361,7 +370,7 @@ Stable terminal reject categories should include cases such as:
 - `CandleEvent`: OHLCV, UTC open time, canonical market ID, exchange ID, timeframe, source, run ID.
 - `StructureEvent`: B output for swings, liquidity, sweeps, OBs, expansions, FVGs, fill updates, and lifecycle transitions.
 - `StructureSnapshot`: B internal/current-state output consumed by C.
-- `SetupEvaluation`: C output for accepted or terminally rejected setups, with rule results and feature snapshot.
+- `SetupEvaluation`: C output for accepted or terminally rejected setups, with rule results, `initialSweepSource`, `displacementConfirmationMode`, and feature snapshot.
 - `TradeIntent`: D output with status, direction, entry, SL, TP, risk, position size, source setup ID, and rejection reason when applicable.
 - `BacktestOutcome`: E1 output with TP, SL, no-fill, open-at-end, expired, or ambiguous-skip status and ML label eligibility.
 - `AnalysisReport`: deterministic post-run report over setup/trade/outcome journals.
@@ -421,6 +430,21 @@ Expected behavior:
 - Fill when price wick-touches the OB zone.
 - Consume the OB on first mitigation.
 - Produce successful TP outcome for the sample.
+
+### Golden Sample 002
+
+Status: planned extension / not MVP-blocking.
+
+This sample represents the same bullish OB strategy family, but the displacement confirmation does not happen through one single expansion candle tied to a classic FVG. Instead, displacement unfolds as a multi-candle impulse away from the OB.
+
+Expected future behavior:
+
+- Detect bullish OB with `initialSweepSource = ObCandleSweep`.
+- Support `displacementConfirmationMode = MultiCandleImpulse` as an alternate displacement confirmation mode.
+- Detect post-OB sell-side liquidity forming above the bullish OB zone.
+- Allow price to take post-OB sell-side liquidity while front-running the OB near-edge entry.
+- Keep the pending order alive after the front-run liquidity grab if the OB has not been mitigated.
+- Fill only on later wick-touch mitigation of the OB zone, subject to expiry/end-of-run rules.
 
 More golden samples should be added as strategy validation grows.
 
