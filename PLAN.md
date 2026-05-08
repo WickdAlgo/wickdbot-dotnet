@@ -133,10 +133,24 @@ runs/{runId}/structures.jsonl
 runs/{runId}/setups.jsonl
 runs/{runId}/trades.jsonl
 runs/{runId}/outcomes.jsonl
+runs/{runId}/run.json
 runs/{runId}/analysis.json
 ```
 
 Every journal record carries `runId`, `marketId`, and `timeframe`.
+
+`run.json` is the immutable effective settings manifest for the run. It is written before the backtest starts and is used to match results with the exact settings that produced them. It includes:
+
+- `runId`;
+- created timestamp;
+- market ID, exchange ID, exchange symbol, and timeframe;
+- requested date range;
+- source candle cache path;
+- starting equity, fixed risk percent, TP R, and SL buffer;
+- all effective B/C/D/E1 strategy settings;
+- enabled/disabled optional rules;
+- application version and git commit when available;
+- hash of the effective run settings.
 
 ## Candle Stream Rules
 
