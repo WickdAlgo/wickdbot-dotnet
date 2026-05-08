@@ -1,0 +1,19 @@
+{
+  "Markets": [
+    {
+      "MarketId": "BTC_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "BTC/USDT:USDT"
+    },
+    {
+      "MarketId": "BTC_USDC_PERP",
+      "ExchangeId": "hyperliquid",
+      "ExchangeSymbol": "BTC/USDC:USDC"
+    },
+    {
+      "MarketId": "ETH_USDC_PERP",
+      "ExchangeId": "hyperliquid",
+      "ExchangeSymbol": "ETH/USDC:USDC"
+    }
+  ]
+}
