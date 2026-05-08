@@ -197,12 +197,12 @@ Every journal record carries `runId`, `marketId`, and `timeframe`.
 - The expansion candle is the middle candle of the required FVG.
 - The OB candle may be candle 1 of the FVG, but the expansion/middle candle must be after the OB.
 - Expansion/FVG may appear within a configurable short window after the OB.
-- Default expansion/FVG window: `3` candles after the OB.
+- Default expansion/FVG window: `1 or 2` candles after the OB.
 - FVG fill percentage uses wick penetration.
 - FVG max-fill-before-entry is configurable and disabled by default.
 - FVG fill percentage is always journaled.
 - The required FVG must remain at least partially open until setup acceptance.
-- If the required FVG is fully filled before setup acceptance, the candidate is terminally rejected and the same OB is not revived by a later FVG.
+- If the required FVG is filled more than half before setup acceptance, the candidate is terminally rejected and the same OB is not revived by a later FVG.
 
 ## Setup Rules
 
@@ -218,9 +218,9 @@ It does not emit noisy "not ready yet" records.
 1. Initial sweep: the selected OB candle or expansion candle must sweep direction-specific prior liquidity.
 2. Expansion/FVG: a qualifying displacement expansion and directly tied classic FVG must appear within the configured window.
 3. Post-OB liquidity: after displacement, at least one direction-appropriate swing/EQ liquidity level must form between current price and the OB mitigation zone.
-4. FVG viability: the required FVG must not be fully filled before setup acceptance.
+4. FVG viability: the required FVG must not be filled more than half before setup acceptance.
 
-FVG max-fill threshold filtering, such as `25%`, is available as config but disabled by default to avoid false negatives.
+FVG max-fill threshold filtering, such as `50%`, is available as config but disabled by default to avoid false negatives.
 
 ### Post-OB Liquidity
 
@@ -237,6 +237,7 @@ For a bearish setup, mirror the rule:
 - the required post-OB liquidity is buy-side liquidity from swing highs/EQHs;
 - it must be below the bearish OB zone;
 - it must sit between current price and the OB mitigation zone;
+- once this liquidity exists, the setup can become actionable before mitigation;
 - on the path back to the OB, price necessarily sweeps that liquidity before touching the OB.
 
 One or more eligible post-OB liquidity levels can satisfy the rule. Journal all eligible levels and all swept levels.
@@ -253,13 +254,13 @@ Post-OB liquidity must come from detected swing/EQ liquidity only. Arbitrary loc
 - Entry is at the OB near edge:
   - bullish entry = OB high;
   - bearish entry = OB low.
-- Stop loss is beyond the OB far edge by a configurable buffer.
-- Default stop buffer: `0`.
-- Take profit is fixed `2.0R` in the MVP.
+- Stop loss is beyond the OB far edge or expansion candle far edge whichever is farer, by a configurable buffer.
+- Stop buffer is configurable, default: `0`.
+- Take profit is configurable, default: `2.0R`.
 - Nearest opposing liquidity target is journaled as a feature but does not set TP in the MVP.
 - Each accepted setup/OB can create one trade.
 - Multiple trades from different setups may overlap.
-- Each trade risks fixed `1%` of starting equity independently.
+- Each trade risk is configurable, default: `1%` of starting equity independently.
 - Default starting equity: `10,000 USDC`.
 - No fee simulation in backtests.
 - No slippage simulation in backtests.
@@ -318,7 +319,7 @@ Stable terminal reject categories should include cases such as:
 
 - `NoInitialSweep`
 - `NoExpansionFvg`
-- `FvgFullyFilledBeforeSetupAcceptance`
+- `FvgFilledBeforeSetupAcceptance`
 - `NoPostObLiquidity`
 - `MitigatedBeforeSetupReady`
 - `InvalidRiskDistance`
