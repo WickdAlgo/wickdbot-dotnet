@@ -17,17 +17,6 @@ A1 HistoricalDataSource
 
 `BacktestPipeline.cs` orchestrates the complete backtest flow in C#.
 
-## Phase 0
-
-Before module work starts, migrate the current project from classic .NET Framework 4.7.2 to SDK-style .NET 8:
-
-- Use C# 12 and .NET 8.
-- Use one main console app project for the MVP.
-- Add one separate test project.
-- Use internal folders/namespaces for boundaries instead of separate class library projects.
-- Add `System.CommandLine` for CLI subcommands.
-- Replace `App.config`/old assembly metadata with modern .NET configuration.
-
 ## Project Shape
 
 ```text

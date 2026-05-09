@@ -1,9 +1,14 @@
 <Solution>
+  <Folder Name="/Planning/">
+    <File Path="PLAN.md" />
+  </Folder>
+  <Folder Name="/Planning/Implementation-History/">
+    <File Path="docs/implementation-history/phase-0.md" />
+    <File Path="docs/implementation-history/phase-1.md" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".gitattributes" />
     <File Path=".gitignore" />
-    <File Path="PLAN.md" />
-    <File Path="README.md" />
   </Folder>
   <Project Path="src/WickdBot/WickdBot.csproj" />
   <Project Path="tests/WickdBot.Tests/WickdBot.Tests.csproj" />
