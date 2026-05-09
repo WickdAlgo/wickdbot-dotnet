@@ -32,19 +32,22 @@ Before module work starts, migrate the current project from classic .NET Framewo
 
 ```text
 WickdBot/
-  Program.cs
-  appsettings.json
-  markets.json
-  Models/
-  Data/
-  Engines/
-  Backtesting/
-  Analysis/
-  Infrastructure/
+  src/
+    WickdBot/
+      Program.cs
+      appsettings.json
+      markets.json
+      Models/
+      Data/
+      Engines/
+      Backtesting/
+      Analysis/
+      Infrastructure/
 
-WickdBot.Tests/
-  Fixtures/
-    Golden/
+  tests/
+    WickdBot.Tests/
+      Fixtures/
+        Golden/
 ```
 
 Separate class library projects can be introduced later if the module boundaries need it.
@@ -114,6 +117,22 @@ fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 202
 backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
 analyze --run-id <runId>
 ```
+
+## Distribution
+
+WickdBot is CLI-first and should remain platform-agnostic across Windows, Linux, and macOS wherever the supported .NET runtime is available.
+
+The first distribution target is a .NET global tool published as a NuGet package with `ToolCommandName=wickdbot`. This keeps the early product simple for technical users:
+
+```text
+dotnet tool install --global WickdBot
+wickdbot --help
+wickdbot fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+wickdbot backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+wickdbot analyze --run-id <runId>
+```
+
+Self-contained platform-specific binaries can be added later for users who do not want to install or manage a .NET runtime. Those releases should be treated as a packaging extension, not the first MVP distribution path.
 
 ## Storage
 
