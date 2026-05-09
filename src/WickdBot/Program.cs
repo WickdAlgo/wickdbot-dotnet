@@ -1,4 +1,8 @@
+#nullable enable
+
 using System.CommandLine;
+using WickdBot.Infrastructure;
+using WickdBot.Models;
 
 namespace WickdBot;
 
@@ -11,6 +15,11 @@ internal static class Program
     /// Exit code returned by command skeletons that parse successfully but are not implemented yet.
     /// </summary>
     internal const int NotImplementedExitCode = 1;
+
+    /// <summary>
+    /// Exit code returned when command arguments or configuration fail validation.
+    /// </summary>
+    internal const int ValidationErrorExitCode = 2;
 
     /// <summary>
     /// Runs the WickdBot command-line interface.
@@ -51,10 +60,11 @@ internal static class Program
         command.Options.Add(toOption);
         command.SetAction(parseResult =>
         {
-            _ = parseResult.GetRequiredValue(marketOption);
-            _ = parseResult.GetRequiredValue(timeframeOption);
-            _ = parseResult.GetRequiredValue(fromOption);
-            _ = parseResult.GetRequiredValue(toOption);
+            var request = ResolveRunRequest(parseResult, marketOption, timeframeOption, fromOption, toOption);
+            if (request is null)
+            {
+                return ValidationErrorExitCode;
+            }
 
             return ReturnNotImplemented("fetch");
         });
@@ -76,10 +86,11 @@ internal static class Program
         command.Options.Add(toOption);
         command.SetAction(parseResult =>
         {
-            _ = parseResult.GetRequiredValue(marketOption);
-            _ = parseResult.GetRequiredValue(timeframeOption);
-            _ = parseResult.GetRequiredValue(fromOption);
-            _ = parseResult.GetRequiredValue(toOption);
+            var request = ResolveRunRequest(parseResult, marketOption, timeframeOption, fromOption, toOption);
+            if (request is null)
+            {
+                return ValidationErrorExitCode;
+            }
 
             return ReturnNotImplemented("backtest");
         });
@@ -141,6 +152,30 @@ internal static class Program
             Description = "Exclusive UTC end time for the requested candle window.",
             Required = true
         };
+    }
+
+    private static RunRequest? ResolveRunRequest(
+        ParseResult parseResult,
+        Option<string> marketOption,
+        Option<string> timeframeOption,
+        Option<DateTimeOffset> fromOption,
+        Option<DateTimeOffset> toOption)
+    {
+        try
+        {
+            var settings = WickdBotConfigurationLoader.LoadDefault();
+            return RunRequestFactory.Create(
+                settings,
+                parseResult.GetRequiredValue(marketOption),
+                parseResult.GetRequiredValue(timeframeOption),
+                parseResult.GetRequiredValue(fromOption),
+                parseResult.GetRequiredValue(toOption));
+        }
+        catch (Exception ex) when (ex is WickdBotConfigurationException or ArgumentException)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return null;
+        }
     }
 
     private static int ReturnNotImplemented(string commandName)

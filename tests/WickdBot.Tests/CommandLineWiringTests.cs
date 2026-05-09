@@ -58,21 +58,27 @@ public class CommandLineWiringTests
     public void SupportedCommandsParseAndReturnNotImplemented(string commandName, string[] args)
     {
         var originalError = Console.Error;
-        using var error = new StringWriter();
+        string errorText;
+        int exitCode;
 
-        try
+        lock (ConsoleRedirectionLock.SyncRoot)
         {
-            Console.SetError(error);
+            using var error = new StringWriter();
 
-            var exitCode = Program.Main(args);
+            try
+            {
+                Console.SetError(error);
 
-            Assert.Equal(Program.NotImplementedExitCode, exitCode);
+                exitCode = Program.Main(args);
+                errorText = error.ToString();
+            }
+            finally
+            {
+                Console.SetError(originalError);
+            }
         }
-        finally
-        {
-            Console.SetError(originalError);
-        }
 
-        Assert.Contains($"Command '{commandName}' is not implemented yet.", error.ToString());
+        Assert.Equal(Program.NotImplementedExitCode, exitCode);
+        Assert.Contains($"Command '{commandName}' is not implemented yet.", errorText);
     }
 }
