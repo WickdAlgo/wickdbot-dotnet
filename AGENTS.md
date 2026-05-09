@@ -4,6 +4,7 @@
 
 - `PLAN.md` is the current architecture and strategy plan.
 - `docs/implementation-history/` contains phase records such as `phase-0.md` and `phase-1.md`.
+- Use `docs/implementation-history/phase-x-template.md` when creating or reshaping phase records. Keep the structure simple: Goal, Planned Scope, Completed Work, Validation, and Notes.
 - `src/WickdBot/` contains the .NET 8 CLI app, configuration files, and future module folders.
 - `tests/WickdBot.Tests/` contains xUnit tests.
 - `.agents/skills/wickdbot-dotnet-engineering/` contains repository-specific engineering guidance for agent work.
