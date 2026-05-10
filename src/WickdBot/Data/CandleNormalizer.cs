@@ -69,6 +69,13 @@ internal static class CandleNormalizer
         return new CandleNormalizationResult(normalizedCandles, gaps);
     }
 
+    /// <summary>
+    /// Counts missing candle slots between an expected and actual candle open time.
+    /// </summary>
+    /// <param name="expectedOpenTimeUtc">The next expected UTC candle open time.</param>
+    /// <param name="actualOpenTimeUtc">The actual UTC candle open time that followed.</param>
+    /// <param name="timeframeDuration">The expected duration between candle opens.</param>
+    /// <returns>The number of missing candle slots.</returns>
     private static int CountMissingCandles(
         DateTimeOffset expectedOpenTimeUtc,
         DateTimeOffset actualOpenTimeUtc,
@@ -83,6 +90,12 @@ internal static class CandleNormalizer
         return Math.Max(1, (int)Math.Ceiling(missingInterval.Ticks / (double)timeframeDuration.Ticks));
     }
 
+    /// <summary>
+    /// Compares all candle fields that must match for duplicate open times to collapse safely.
+    /// </summary>
+    /// <param name="left">The first candle to compare.</param>
+    /// <param name="right">The second candle to compare.</param>
+    /// <returns><see langword="true" /> when the candles are equivalent; otherwise, <see langword="false" />.</returns>
     private static bool AreEquivalent(CandleEvent left, CandleEvent right)
     {
         return left.OpenTimeUtc == right.OpenTimeUtc

@@ -71,6 +71,12 @@ internal static class WickdBotConfigurationLoader
         }
     }
 
+    /// <summary>
+    /// Loads and validates configured market definitions from markets.json.
+    /// </summary>
+    /// <param name="marketsFilePath">The resolved path to markets.json.</param>
+    /// <returns>Market definitions keyed by canonical market ID.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the markets file is missing or invalid.</exception>
     private static IReadOnlyDictionary<string, MarketDefinition> LoadMarkets(string marketsFilePath)
     {
         if (!File.Exists(marketsFilePath))
@@ -104,6 +110,11 @@ internal static class WickdBotConfigurationLoader
         return markets;
     }
 
+    /// <summary>
+    /// Finds appsettings.json for either normal application execution or test execution from the repository root.
+    /// </summary>
+    /// <returns>The resolved appsettings.json path.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when no default settings file can be found.</exception>
     private static string FindDefaultAppSettingsPath()
     {
         var baseDirectoryCandidate = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
@@ -122,6 +133,12 @@ internal static class WickdBotConfigurationLoader
             $"App settings file was not found. Checked '{baseDirectoryCandidate}' and '{currentDirectoryCandidate}'.");
     }
 
+    /// <summary>
+    /// Resolves a configured file path relative to the file that referenced it.
+    /// </summary>
+    /// <param name="anchorPath">The file path used as the relative-path anchor.</param>
+    /// <param name="candidatePath">The configured absolute or relative path.</param>
+    /// <returns>The resolved path.</returns>
     private static string ResolvePathRelativeTo(string anchorPath, string candidatePath)
     {
         if (Path.IsPathRooted(candidatePath))
@@ -135,6 +152,13 @@ internal static class WickdBotConfigurationLoader
         return Path.Combine(anchorDirectory, candidatePath);
     }
 
+    /// <summary>
+    /// Parses a configured timeframe and reports invalid values as configuration failures.
+    /// </summary>
+    /// <param name="value">The configured timeframe value.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The parsed timeframe.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the timeframe is not supported.</exception>
     private static Timeframe ParseConfiguredTimeframe(string value, string path)
     {
         try
@@ -147,6 +171,14 @@ internal static class WickdBotConfigurationLoader
         }
     }
 
+    /// <summary>
+    /// Reads a required JSON object property.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required object value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing or is not an object.</exception>
     private static JsonElement GetRequiredObject(JsonElement parent, string propertyName, string path)
     {
         var property = GetRequiredProperty(parent, propertyName, path);
@@ -158,6 +190,14 @@ internal static class WickdBotConfigurationLoader
         return property;
     }
 
+    /// <summary>
+    /// Reads a required JSON array property.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required array value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing or is not an array.</exception>
     private static JsonElement GetRequiredArray(JsonElement parent, string propertyName, string path)
     {
         var property = GetRequiredProperty(parent, propertyName, path);
@@ -169,6 +209,14 @@ internal static class WickdBotConfigurationLoader
         return property;
     }
 
+    /// <summary>
+    /// Reads a required non-empty JSON string property.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required string value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing, not a string, or empty.</exception>
     private static string GetRequiredString(JsonElement parent, string propertyName, string path)
     {
         var property = GetRequiredProperty(parent, propertyName, path);
@@ -186,6 +234,14 @@ internal static class WickdBotConfigurationLoader
         return value;
     }
 
+    /// <summary>
+    /// Reads a required JSON property without validating its value kind.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required property value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing.</exception>
     private static JsonElement GetRequiredProperty(JsonElement parent, string propertyName, string path)
     {
         if (!parent.TryGetProperty(propertyName, out var property))

@@ -57,6 +57,11 @@ internal static class RunRequestFactory
             "candles.jsonl");
     }
 
+    /// <summary>
+    /// Formats a UTC instant for use in a deterministic, filesystem-safe cache path segment.
+    /// </summary>
+    /// <param name="instantUtc">The UTC instant to format.</param>
+    /// <returns>The cache path representation of the instant.</returns>
     private static string FormatCacheInstant(DateTimeOffset instantUtc)
     {
         return FormattableString.Invariant($"{instantUtc:yyyy-MM-dd'T'HH-mm-ss.fffffff'Z'}");

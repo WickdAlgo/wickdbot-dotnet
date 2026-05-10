@@ -149,6 +149,9 @@ public class ConfigurationLoaderTests
         }
     };
 
+    /// <summary>
+    /// Valid single-market markets.json fixture used by configuration loader tests.
+    /// </summary>
     private const string ValidMarketsJson = """
         {
           "Markets": [
@@ -161,6 +164,14 @@ public class ConfigurationLoaderTests
         }
         """;
 
+    /// <summary>
+    /// Writes paired appsettings.json and markets.json fixtures into a temporary directory.
+    /// </summary>
+    /// <param name="directory">The temporary directory that owns the files.</param>
+    /// <param name="marketsJson">The markets.json contents.</param>
+    /// <param name="defaultMarket">The default market ID to write to appsettings.json.</param>
+    /// <param name="timeframe">The default timeframe to write to appsettings.json.</param>
+    /// <returns>The full path to the written appsettings.json file.</returns>
     private static string WriteConfiguration(
         TemporaryDirectory directory,
         string marketsJson,

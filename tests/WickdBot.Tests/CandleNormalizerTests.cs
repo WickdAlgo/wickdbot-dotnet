@@ -83,6 +83,12 @@ public class CandleNormalizerTests
         Assert.Equal(2, result.Candles.Count);
     }
 
+    /// <summary>
+    /// Creates a valid historical candle for normalization tests.
+    /// </summary>
+    /// <param name="openTimeUtc">The UTC open time to assign to the candle.</param>
+    /// <param name="close">The close price to assign to the candle.</param>
+    /// <returns>The test candle.</returns>
     private static CandleEvent CreateCandle(DateTimeOffset openTimeUtc, decimal close = 101m)
     {
         return new CandleEvent(

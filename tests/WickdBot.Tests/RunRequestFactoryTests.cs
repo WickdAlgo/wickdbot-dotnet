@@ -121,6 +121,10 @@ public class RunRequestFactoryTests
         Assert.Contains("start time must be expressed in UTC", exception.Message);
     }
 
+    /// <summary>
+    /// Creates validated settings with one configured BTC/USDT perpetual market.
+    /// </summary>
+    /// <returns>The test settings.</returns>
     private static WickdBotSettings CreateSettings()
     {
         var market = new MarketDefinition("BTC_USDT_PERP", "binance", "BTC/USDT:USDT");

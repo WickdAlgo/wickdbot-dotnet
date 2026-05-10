@@ -9,6 +9,9 @@ namespace WickdBot.Data;
 /// </summary>
 internal static class CandleJsonLines
 {
+    /// <summary>
+    /// Serializer options shared by candle JSONL read and write paths.
+    /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
 
     /// <summary>
@@ -74,6 +77,10 @@ internal static class CandleJsonLines
         return candles;
     }
 
+    /// <summary>
+    /// Creates deterministic JSON serializer options for candle JSONL records.
+    /// </summary>
+    /// <returns>The serializer options used for candle records.</returns>
     private static JsonSerializerOptions CreateSerializerOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
