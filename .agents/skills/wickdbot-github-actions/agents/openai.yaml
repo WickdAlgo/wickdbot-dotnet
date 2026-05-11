@@ -1,0 +1,4 @@
+interface:
+  display_name: "WickdBot GitHub Actions"
+  short_description: "Create secure .NET GitHub Actions CI/CD for WickdBot."
+  default_prompt: "Use this when adding or changing GitHub Actions workflows for WickdBot so CI/CD stays secure, current, and repo-specific."
