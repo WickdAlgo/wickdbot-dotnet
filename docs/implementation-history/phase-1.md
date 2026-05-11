@@ -36,17 +36,31 @@ Build the non-strategy foundation for deterministic backtests: validated configu
 
 ## Completed Work
 
-Not started yet.
+- Added core contracts for candles, markets, run requests, date ranges, timeframes, and candle sources.
+- Added configuration loading and validation for `appsettings.json` and `markets.json`.
+- Added run request resolution with deterministic candle cache path derivation using the full UTC request range.
+- Added JSONL candle read/write support using `System.Text.Json`.
+- Added candle normalization for UTC ordering, exact duplicate collapse, conflicting duplicate rejection, and non-fatal gap detection.
+- Extended `fetch` and `backtest` command skeletons so they validate configuration, market, timeframe, and date range before returning placeholder behavior.
+- Added focused xUnit coverage for timeframe parsing, configuration validation, CLI validation, run request cache paths, candle normalization, gap detection, and JSONL round-tripping.
 
 ## Validation
 
-Phase 1 is complete when:
+Phase 1 validation command:
 
 ```text
 dotnet test WickdBot.slnx
 ```
 
-passes and the code can reliably answer:
+Current validation:
+
+```text
+dotnet test .\WickdBot.slnx --no-restore
+```
+
+Passed on 2026-05-10 with 33 tests.
+
+The code can now reliably answer:
 
 - what market `BTC_USDT_PERP` resolves to;
 - whether `5m` is valid;
