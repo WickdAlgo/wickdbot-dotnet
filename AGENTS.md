@@ -27,6 +27,25 @@ dotnet run --project src/WickdBot -- --help
 - `test` runs the xUnit test suite.
 - `run` starts the CLI locally.
 
+## DocFX Documentation
+
+DocFX turns C# XML documentation comments from `src/WickdBot/` into a local browsable documentation site. The local tool manifest lives in `.config/dotnet-tools.json`; do not require a global DocFX install.
+
+Run commands from the repository root:
+
+```text
+dotnet tool restore
+dotnet docfx metadata docs/docfx.json
+dotnet docfx build docs/docfx.json
+dotnet docfx serve docs/_site --port 8080
+```
+
+- `metadata` reads `src/WickdBot/WickdBot.csproj` and generates API metadata under `docs/api/`.
+- `build` creates the static site under `docs/_site/`.
+- `serve` previews the generated site locally.
+- Keep curated docs files such as `docs/index.md`, `docs/toc.yml`, `docs/docfx.json`, `docs/filterConfig.yml`, and `docs/api/index.md` in source control.
+- Do not commit generated DocFX outputs such as `docs/_site/`, `docs/api/*.yml`, or `docs/api/.manifest`.
+
 ## Coding Style & Naming Conventions
 
 Use C# 12/.NET 8 patterns. Keep implicit usings enabled. Prefer records for immutable contracts and classes for behavior-rich services. Use explicit WickdBot domain names instead of generic names like `Manager`, `Helper`, or `Processor`.

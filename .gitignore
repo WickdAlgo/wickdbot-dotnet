@@ -28,6 +28,13 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# DocFX generated docs
+docs/_site/
+docs/api/*.yml
+docs/api/**/*.yml
+docs/api/.manifest
+docs/api/**/.manifest
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

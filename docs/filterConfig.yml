@@ -1,0 +1,5 @@
+apiRules:
+- exclude:
+    uidRegex: ^WickdBot\.Tests
+- exclude:
+    uidRegex: ^WickdBot\.Properties
