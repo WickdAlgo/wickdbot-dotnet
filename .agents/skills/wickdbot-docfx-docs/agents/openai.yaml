@@ -1,0 +1,4 @@
+interface:
+  display_name: "WickdBot DocFX Docs"
+  short_description: "Create DocFX API docs from WickdBot C# XML comments."
+  default_prompt: "Use this when adding or maintaining DocFX documentation for WickdBot so C# XML docs become a browsable website."
