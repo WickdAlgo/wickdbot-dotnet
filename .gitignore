@@ -35,6 +35,11 @@ docs/api/**/*.yml
 docs/api/.manifest
 docs/api/**/.manifest
 
+# WickdBot runtime outputs
+data/datasets.json
+data/cache/
+runs/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

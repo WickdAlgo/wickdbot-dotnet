@@ -6,7 +6,7 @@ namespace WickdBot.Tests;
 internal static class ConsoleRedirectionLock
 {
     /// <summary>
-    /// Gets the shared lock used around console stream redirection.
+    /// Gets the shared semaphore used around console stream redirection.
     /// </summary>
-    internal static object SyncRoot { get; } = new();
+    internal static SemaphoreSlim SyncRoot { get; } = new(1, 1);
 }
