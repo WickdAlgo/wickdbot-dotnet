@@ -12,6 +12,11 @@ namespace WickdBot.Data;
 internal sealed class DatasetAliasCatalog
 {
     /// <summary>
+    /// Delay between attempts to acquire the catalog lock.
+    /// </summary>
+    private static readonly TimeSpan LockRetryDelay = TimeSpan.FromMilliseconds(25);
+
+    /// <summary>
     /// Serializer options shared by dataset alias reads and writes.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
@@ -30,11 +35,20 @@ internal sealed class DatasetAliasCatalog
     private readonly TimeProvider timeProvider;
 
     /// <summary>
+    /// Creates temporary catalog paths for atomic writes.
+    /// </summary>
+    private readonly Func<string, string> createTempCatalogPath;
+
+    /// <summary>
     /// Initializes a dataset alias catalog.
     /// </summary>
     /// <param name="catalogPath">Local JSON catalog path.</param>
     /// <param name="timeProvider">Clock used for alias timestamps.</param>
-    internal DatasetAliasCatalog(string catalogPath, TimeProvider? timeProvider = null)
+    /// <param name="createTempCatalogPath">Factory used to create temporary catalog paths for atomic writes.</param>
+    internal DatasetAliasCatalog(
+        string catalogPath,
+        TimeProvider? timeProvider = null,
+        Func<string, string>? createTempCatalogPath = null)
     {
         if (string.IsNullOrWhiteSpace(catalogPath))
         {
@@ -43,6 +57,7 @@ internal sealed class DatasetAliasCatalog
 
         this.catalogPath = catalogPath;
         this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.createTempCatalogPath = createTempCatalogPath ?? CreateTempCatalogPath;
     }
 
     /// <summary>
@@ -93,35 +108,10 @@ internal sealed class DatasetAliasCatalog
         CancellationToken cancellationToken = default)
     {
         DatasetAlias.ValidateAlias(alias);
+
+        await using var catalogLock = await OpenCatalogLockAsync(cancellationToken);
         var aliases = await LoadAsync(cancellationToken);
-        var nowUtc = timeProvider.GetUtcNow().ToUniversalTime();
-        var existing = aliases.SingleOrDefault(item => item.Alias == alias);
-
-        if (existing is not null && !force)
-        {
-            throw new DatasetAliasException(
-                $"Dataset alias '{alias}' already exists. Use --force to overwrite it.");
-        }
-
-        var saved = new DatasetAlias(
-            alias,
-            result.Request.Market.MarketId,
-            result.Request.Market.ExchangeId,
-            result.Request.Timeframe.Value,
-            result.Request.DateRange.FromUtc,
-            result.Request.DateRange.ToUtc,
-            result.CachePath,
-            existing?.CreatedAtUtc ?? nowUtc,
-            nowUtc);
-
-        var updatedAliases = aliases
-            .Where(item => item.Alias != alias)
-            .Append(saved)
-            .OrderBy(item => item.Alias, StringComparer.Ordinal)
-            .ToArray();
-
-        await SaveAllAsync(updatedAliases, cancellationToken);
-        return saved;
+        return await SaveLockedAsync(alias, result, force, aliases, cancellationToken);
     }
 
     /// <summary>
@@ -214,6 +204,8 @@ internal sealed class DatasetAliasCatalog
         IReadOnlyCollection<DatasetAlias> aliases,
         CancellationToken cancellationToken)
     {
+        var tempPath = createTempCatalogPath(catalogPath);
+
         try
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(catalogPath));
@@ -222,19 +214,189 @@ internal sealed class DatasetAliasCatalog
                 Directory.CreateDirectory(directory);
             }
 
-            await using var stream = File.Create(catalogPath);
-            await JsonSerializer.SerializeAsync(
-                stream,
-                new DatasetAliasDocument(aliases.ToArray()),
-                SerializerOptions,
-                cancellationToken);
-            await stream.WriteAsync("\n"u8.ToArray(), cancellationToken);
+            await using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                FileOptions.Asynchronous))
+            {
+                await JsonSerializer.SerializeAsync(
+                    stream,
+                    new DatasetAliasDocument(aliases.ToArray()),
+                    SerializerOptions,
+                    cancellationToken);
+                await stream.WriteAsync("\n"u8.ToArray(), cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            if (File.Exists(catalogPath))
+            {
+                File.Replace(tempPath, catalogPath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, catalogPath);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            TryDeleteFile(tempPath);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            TryDeleteFile(tempPath);
+            throw new DatasetAliasException(
+                $"Could not write dataset alias catalog: {catalogPath}. {ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Saves an alias while the catalog lock is held.
+    /// </summary>
+    /// <param name="alias">Friendly dataset alias.</param>
+    /// <param name="result">Historical data result to reference.</param>
+    /// <param name="force">Whether an existing alias may be overwritten.</param>
+    /// <param name="aliases">Aliases loaded while the catalog lock is held.</param>
+    /// <param name="cancellationToken">Cancellation token for file I/O.</param>
+    /// <returns>The saved dataset alias.</returns>
+    private async Task<DatasetAlias> SaveLockedAsync(
+        string alias,
+        HistoricalDataResult result,
+        bool force,
+        IReadOnlyList<DatasetAlias> aliases,
+        CancellationToken cancellationToken)
+    {
+        var nowUtc = timeProvider.GetUtcNow().ToUniversalTime();
+        var existing = aliases.SingleOrDefault(item => item.Alias == alias);
+
+        if (existing is not null && !force)
+        {
+            throw new DatasetAliasException(
+                $"Dataset alias '{alias}' already exists. Use --force to overwrite it.");
+        }
+
+        var saved = new DatasetAlias(
+            alias,
+            result.Request.Market.MarketId,
+            result.Request.Market.ExchangeId,
+            result.Request.Timeframe.Value,
+            result.Request.DateRange.FromUtc,
+            result.Request.DateRange.ToUtc,
+            result.CachePath,
+            existing?.CreatedAtUtc ?? nowUtc,
+            nowUtc);
+
+        var updatedAliases = aliases
+            .Where(item => item.Alias != alias)
+            .Append(saved)
+            .OrderBy(item => item.Alias, StringComparer.Ordinal)
+            .ToArray();
+
+        await SaveAllAsync(updatedAliases, cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// Opens the exclusive catalog lock file, waiting until another writer releases it.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token for waiting on the lock.</param>
+    /// <returns>The opened catalog lock stream.</returns>
+    private async Task<FileStream> OpenCatalogLockAsync(CancellationToken cancellationToken)
+    {
+        var lockPath = catalogPath + ".lock";
+
+        try
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(lockPath));
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new DatasetAliasException(
-                $"Could not write dataset alias catalog: {catalogPath}. {ex.Message}",
+                $"Could not open dataset alias catalog lock: {lockPath}. {ex.Message}",
                 ex);
+        }
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                return new FileStream(
+                    lockPath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    bufferSize: 1,
+                    FileOptions.Asynchronous);
+            }
+            catch (IOException ex) when (IsLockContention(ex))
+            {
+                await Task.Delay(LockRetryDelay, cancellationToken);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new DatasetAliasException(
+                    $"Could not open dataset alias catalog lock: {lockPath}. {ex.Message}",
+                    ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Creates the default temporary path used for atomic catalog writes.
+    /// </summary>
+    /// <param name="finalCatalogPath">Final catalog path.</param>
+    /// <returns>The temporary catalog path.</returns>
+    private static string CreateTempCatalogPath(string finalCatalogPath)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(finalCatalogPath));
+        var fileName = Path.GetFileName(finalCatalogPath);
+
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return $"{fileName}.{Guid.NewGuid():N}.tmp";
+        }
+
+        return Path.Combine(directory, $"{fileName}.{Guid.NewGuid():N}.tmp");
+    }
+
+    /// <summary>
+    /// Checks whether an I/O error represents another process holding the catalog lock.
+    /// </summary>
+    /// <param name="exception">I/O exception to inspect.</param>
+    /// <returns><see langword="true" /> when the exception represents lock contention.</returns>
+    private static bool IsLockContention(IOException exception)
+    {
+        const int sharingViolation = unchecked((int)0x80070020);
+        const int lockViolation = unchecked((int)0x80070021);
+
+        return exception.HResult is sharingViolation or lockViolation;
+    }
+
+    /// <summary>
+    /// Attempts to delete a temporary file without masking the original write failure.
+    /// </summary>
+    /// <param name="path">Temporary file path to delete.</param>
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
