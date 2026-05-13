@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.CommandLine;
+using WickdBot.Data;
 using WickdBot.Infrastructure;
 using WickdBot.Models;
 
@@ -26,21 +27,27 @@ internal static class Program
     /// </summary>
     /// <param name="args">Command-line arguments supplied by the host process.</param>
     /// <returns>The process exit code.</returns>
-    internal static int Main(string[] args)
+    internal static Task<int> Main(string[] args)
     {
-        return BuildRootCommand().Parse(args).Invoke();
+        return BuildRootCommand().Parse(args).InvokeAsync();
     }
 
     /// <summary>
     /// Builds the root command and supported MVP subcommands.
     /// </summary>
+    /// <param name="historicalDataSource">Historical data source used by fetch and backtest commands.</param>
+    /// <param name="loadSettings">Settings loader used to resolve run commands.</param>
     /// <returns>The configured root command.</returns>
-    internal static RootCommand BuildRootCommand()
+    internal static RootCommand BuildRootCommand(
+        HistoricalDataSource? historicalDataSource = null,
+        Func<WickdBotSettings>? loadSettings = null)
     {
+        var dataSource = historicalDataSource ?? HistoricalDataSource.CreateDefault();
+        var settingsLoader = loadSettings ?? WickdBotConfigurationLoader.LoadDefault;
         var rootCommand = new RootCommand("WickdBot trading research CLI.");
 
-        rootCommand.Subcommands.Add(CreateFetchCommand());
-        rootCommand.Subcommands.Add(CreateBacktestCommand());
+        rootCommand.Subcommands.Add(CreateFetchCommand(dataSource, settingsLoader));
+        rootCommand.Subcommands.Add(CreateBacktestCommand(dataSource, settingsLoader));
         rootCommand.Subcommands.Add(CreateAnalyzeCommand());
 
         return rootCommand;
@@ -49,28 +56,70 @@ internal static class Program
     /// <summary>
     /// Creates the fetch command that validates a historical candle request before placeholder execution.
     /// </summary>
+    /// <param name="historicalDataSource">Historical data source used to load or fetch candles.</param>
+    /// <param name="loadSettings">Settings loader used to resolve the request.</param>
     /// <returns>The configured fetch command.</returns>
-    private static Command CreateFetchCommand()
+    private static Command CreateFetchCommand(
+        HistoricalDataSource historicalDataSource,
+        Func<WickdBotSettings> loadSettings)
     {
-        var marketOption = CreateMarketOption();
-        var timeframeOption = CreateTimeframeOption();
-        var fromOption = CreateFromOption();
-        var toOption = CreateToOption();
+        var marketOption = CreateMarketOption(required: true);
+        var timeframeOption = CreateTimeframeOption(required: true);
+        var fromOption = CreateFromOption(required: true);
+        var toOption = CreateToOption(required: true);
+        var aliasOption = CreateDatasetAliasOption();
+        var forceOption = CreateForceOption();
 
         var command = new Command("fetch", "Fetch and cache historical candles for one market and timeframe.");
         command.Options.Add(marketOption);
         command.Options.Add(timeframeOption);
         command.Options.Add(fromOption);
         command.Options.Add(toOption);
-        command.SetAction(parseResult =>
+        command.Options.Add(aliasOption);
+        command.Options.Add(forceOption);
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var request = ResolveRunRequest(parseResult, marketOption, timeframeOption, fromOption, toOption);
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            var request = ResolveRunRequest(
+                parseResult,
+                marketOption,
+                timeframeOption,
+                fromOption,
+                toOption,
+                settings);
             if (request is null)
             {
                 return ValidationErrorExitCode;
             }
 
-            return ReturnNotImplemented("fetch");
+            try
+            {
+                var result = await historicalDataSource.LoadOrFetchAsync(request, cancellationToken);
+                var alias = parseResult.GetValue(aliasOption);
+                if (!string.IsNullOrWhiteSpace(alias))
+                {
+                    var catalog = DatasetAliasCatalog.CreateDefault(settings);
+                    var savedAlias = await catalog.SaveAsync(
+                        alias,
+                        result,
+                        parseResult.GetValue(forceOption),
+                        cancellationToken);
+                    WriteDatasetAliasResult(savedAlias);
+                }
+
+                WriteFetchResult(result);
+                return 0;
+            }
+            catch (Exception ex) when (ex is WickdBotDataException or DatasetAliasException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
         });
 
         return command;
@@ -79,28 +128,66 @@ internal static class Program
     /// <summary>
     /// Creates the backtest command that validates a deterministic run request before placeholder execution.
     /// </summary>
+    /// <param name="historicalDataSource">Historical data source used to replay cached candles.</param>
+    /// <param name="loadSettings">Settings loader used to resolve the request.</param>
     /// <returns>The configured backtest command.</returns>
-    private static Command CreateBacktestCommand()
+    private static Command CreateBacktestCommand(
+        HistoricalDataSource historicalDataSource,
+        Func<WickdBotSettings> loadSettings)
     {
-        var marketOption = CreateMarketOption();
-        var timeframeOption = CreateTimeframeOption();
-        var fromOption = CreateFromOption();
-        var toOption = CreateToOption();
+        var marketOption = CreateMarketOption(required: false);
+        var timeframeOption = CreateTimeframeOption(required: false);
+        var fromOption = CreateFromOption(required: false);
+        var toOption = CreateToOption(required: false);
+        var datasetOption = CreateDatasetOption();
+        var runIdOption = CreateBacktestRunIdOption();
 
         var command = new Command("backtest", "Run a deterministic backtest for one market and timeframe.");
         command.Options.Add(marketOption);
         command.Options.Add(timeframeOption);
         command.Options.Add(fromOption);
         command.Options.Add(toOption);
-        command.SetAction(parseResult =>
+        command.Options.Add(datasetOption);
+        command.Options.Add(runIdOption);
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var request = ResolveRunRequest(parseResult, marketOption, timeframeOption, fromOption, toOption);
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            var request = await ResolveBacktestRunRequestAsync(
+                parseResult,
+                marketOption,
+                timeframeOption,
+                fromOption,
+                toOption,
+                datasetOption,
+                settings,
+                cancellationToken);
             if (request is null)
             {
                 return ValidationErrorExitCode;
             }
 
-            return ReturnNotImplemented("backtest");
+            var runId = parseResult.GetValue(runIdOption);
+            if (string.IsNullOrWhiteSpace(runId))
+            {
+                runId = GenerateRunId(DateTimeOffset.UtcNow);
+            }
+
+            try
+            {
+                var result = await historicalDataSource.ReplayAsync(request, runId, cancellationToken);
+                WriteReplayResult(result);
+                return 0;
+            }
+            catch (WickdBotDataException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
         });
 
         return command;
@@ -133,52 +220,104 @@ internal static class Program
     /// <summary>
     /// Creates the shared market option used by run commands.
     /// </summary>
+    /// <param name="required">Whether the option is required by the parser.</param>
     /// <returns>The configured market option.</returns>
-    private static Option<string> CreateMarketOption()
+    private static Option<string?> CreateMarketOption(bool required)
     {
-        return new Option<string>("--market")
+        return new Option<string?>("--market")
         {
             Description = "Canonical market ID from markets.json.",
-            Required = true
+            Required = required
         };
     }
 
     /// <summary>
     /// Creates the shared timeframe option used by run commands.
     /// </summary>
+    /// <param name="required">Whether the option is required by the parser.</param>
     /// <returns>The configured timeframe option.</returns>
-    private static Option<string> CreateTimeframeOption()
+    private static Option<string?> CreateTimeframeOption(bool required)
     {
-        return new Option<string>("--timeframe")
+        return new Option<string?>("--timeframe")
         {
             Description = "Candle timeframe, such as 5m.",
-            Required = true
+            Required = required
         };
     }
 
     /// <summary>
     /// Creates the shared inclusive UTC start time option used by run commands.
     /// </summary>
+    /// <param name="required">Whether the option is required by the parser.</param>
     /// <returns>The configured start time option.</returns>
-    private static Option<DateTimeOffset> CreateFromOption()
+    private static Option<DateTimeOffset?> CreateFromOption(bool required)
     {
-        return new Option<DateTimeOffset>("--from")
+        return new Option<DateTimeOffset?>("--from")
         {
             Description = "Inclusive UTC start time for the requested candle window.",
-            Required = true
+            Required = required
         };
     }
 
     /// <summary>
     /// Creates the shared exclusive UTC end time option used by run commands.
     /// </summary>
+    /// <param name="required">Whether the option is required by the parser.</param>
     /// <returns>The configured end time option.</returns>
-    private static Option<DateTimeOffset> CreateToOption()
+    private static Option<DateTimeOffset?> CreateToOption(bool required)
     {
-        return new Option<DateTimeOffset>("--to")
+        return new Option<DateTimeOffset?>("--to")
         {
             Description = "Exclusive UTC end time for the requested candle window.",
-            Required = true
+            Required = required
+        };
+    }
+
+    /// <summary>
+    /// Creates the optional fetch alias option.
+    /// </summary>
+    /// <returns>The configured alias option.</returns>
+    private static Option<string?> CreateDatasetAliasOption()
+    {
+        return new Option<string?>("--alias")
+        {
+            Description = "Optional friendly dataset alias saved for this fetched range."
+        };
+    }
+
+    /// <summary>
+    /// Creates the optional overwrite flag for alias saves.
+    /// </summary>
+    /// <returns>The configured force option.</returns>
+    private static Option<bool> CreateForceOption()
+    {
+        return new Option<bool>("--force")
+        {
+            Description = "Overwrite an existing dataset alias."
+        };
+    }
+
+    /// <summary>
+    /// Creates the optional backtest dataset alias option.
+    /// </summary>
+    /// <returns>The configured dataset option.</returns>
+    private static Option<string?> CreateDatasetOption()
+    {
+        return new Option<string?>("--dataset")
+        {
+            Description = "Dataset alias previously saved by fetch --alias."
+        };
+    }
+
+    /// <summary>
+    /// Creates the optional backtest run ID option.
+    /// </summary>
+    /// <returns>The configured run ID option.</returns>
+    private static Option<string?> CreateBacktestRunIdOption()
+    {
+        return new Option<string?>("--run-id")
+        {
+            Description = "Optional run ID assigned to replayed backtest candles."
         };
     }
 
@@ -190,29 +329,209 @@ internal static class Program
     /// <param name="timeframeOption">The timeframe option to read.</param>
     /// <param name="fromOption">The start time option to read.</param>
     /// <param name="toOption">The end time option to read.</param>
+    /// <param name="settings">Loaded WickdBot settings.</param>
     /// <returns>The validated run request, or <see langword="null" /> when validation fails.</returns>
     private static RunRequest? ResolveRunRequest(
         ParseResult parseResult,
-        Option<string> marketOption,
-        Option<string> timeframeOption,
-        Option<DateTimeOffset> fromOption,
-        Option<DateTimeOffset> toOption)
+        Option<string?> marketOption,
+        Option<string?> timeframeOption,
+        Option<DateTimeOffset?> fromOption,
+        Option<DateTimeOffset?> toOption,
+        WickdBotSettings settings)
     {
         try
         {
-            var settings = WickdBotConfigurationLoader.LoadDefault();
+            var marketId = GetRequiredOptionValue(parseResult, marketOption, "--market");
+            var timeframe = GetRequiredOptionValue(parseResult, timeframeOption, "--timeframe");
+            var fromUtc = GetRequiredOptionValue(parseResult, fromOption, "--from");
+            var toUtc = GetRequiredOptionValue(parseResult, toOption, "--to");
+
             return RunRequestFactory.Create(
                 settings,
-                parseResult.GetRequiredValue(marketOption),
-                parseResult.GetRequiredValue(timeframeOption),
-                parseResult.GetRequiredValue(fromOption),
-                parseResult.GetRequiredValue(toOption));
+                marketId,
+                timeframe,
+                fromUtc,
+                toUtc);
         }
         catch (Exception ex) when (ex is WickdBotConfigurationException or ArgumentException)
         {
             Console.Error.WriteLine(ex.Message);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Resolves a backtest request from either a dataset alias or explicit run options.
+    /// </summary>
+    /// <param name="parseResult">The parsed command-line result.</param>
+    /// <param name="marketOption">The market option to read.</param>
+    /// <param name="timeframeOption">The timeframe option to read.</param>
+    /// <param name="fromOption">The start time option to read.</param>
+    /// <param name="toOption">The end time option to read.</param>
+    /// <param name="datasetOption">The dataset alias option to read.</param>
+    /// <param name="settings">Loaded WickdBot settings.</param>
+    /// <param name="cancellationToken">Cancellation token for alias catalog I/O.</param>
+    /// <returns>The resolved run request, or <see langword="null" /> when validation fails.</returns>
+    private static async Task<RunRequest?> ResolveBacktestRunRequestAsync(
+        ParseResult parseResult,
+        Option<string?> marketOption,
+        Option<string?> timeframeOption,
+        Option<DateTimeOffset?> fromOption,
+        Option<DateTimeOffset?> toOption,
+        Option<string?> datasetOption,
+        WickdBotSettings settings,
+        CancellationToken cancellationToken)
+    {
+        var datasetAlias = parseResult.GetValue(datasetOption);
+        if (!string.IsNullOrWhiteSpace(datasetAlias))
+        {
+            if (IsSpecified(parseResult, marketOption)
+                || IsSpecified(parseResult, timeframeOption)
+                || IsSpecified(parseResult, fromOption)
+                || IsSpecified(parseResult, toOption))
+            {
+                Console.Error.WriteLine("Use either --dataset or explicit --market/--timeframe/--from/--to options, not both.");
+                return null;
+            }
+
+            try
+            {
+                return await DatasetAliasCatalog
+                    .CreateDefault(settings)
+                    .ResolveRunRequestAsync(datasetAlias, settings, cancellationToken);
+            }
+            catch (Exception ex) when (ex is DatasetAliasException or WickdBotConfigurationException or ArgumentException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return null;
+            }
+        }
+
+        return ResolveRunRequest(
+            parseResult,
+            marketOption,
+            timeframeOption,
+            fromOption,
+            toOption,
+            settings);
+    }
+
+    /// <summary>
+    /// Loads settings and converts configuration failures into command validation output.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader to invoke.</param>
+    /// <returns>The loaded settings, or <see langword="null" /> when loading fails.</returns>
+    private static WickdBotSettings? LoadSettings(Func<WickdBotSettings> loadSettings)
+    {
+        try
+        {
+            return loadSettings();
+        }
+        catch (WickdBotConfigurationException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets a required nullable value option.
+    /// </summary>
+    /// <typeparam name="T">Option value type.</typeparam>
+    /// <param name="parseResult">The parsed command-line result.</param>
+    /// <param name="option">The option to read.</param>
+    /// <param name="optionName">Option name used in diagnostics.</param>
+    /// <returns>The option value.</returns>
+    /// <exception cref="ArgumentException">Thrown when the option is absent.</exception>
+    private static T GetRequiredOptionValue<T>(
+        ParseResult parseResult,
+        Option<T?> option,
+        string optionName)
+        where T : struct
+    {
+        var value = parseResult.GetValue(option);
+        if (value is null)
+        {
+            throw new ArgumentException($"Option '{optionName}' is required.");
+        }
+
+        return value.Value;
+    }
+
+    /// <summary>
+    /// Gets a required nullable string option.
+    /// </summary>
+    /// <param name="parseResult">The parsed command-line result.</param>
+    /// <param name="option">The option to read.</param>
+    /// <param name="optionName">Option name used in diagnostics.</param>
+    /// <returns>The option value.</returns>
+    /// <exception cref="ArgumentException">Thrown when the option is absent.</exception>
+    private static string GetRequiredOptionValue(
+        ParseResult parseResult,
+        Option<string?> option,
+        string optionName)
+    {
+        var value = parseResult.GetValue(option);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException($"Option '{optionName}' is required.");
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Checks whether an option was explicitly specified.
+    /// </summary>
+    /// <param name="parseResult">The parsed command-line result.</param>
+    /// <param name="option">The option to inspect.</param>
+    /// <returns><see langword="true" /> when the option was specified.</returns>
+    private static bool IsSpecified(ParseResult parseResult, Option option)
+    {
+        return parseResult.GetResult(option) is not null;
+    }
+
+    /// <summary>
+    /// Writes the fetch command result summary.
+    /// </summary>
+    /// <param name="result">Historical data result to report.</param>
+    private static void WriteFetchResult(HistoricalDataResult result)
+    {
+        var action = result.CacheHit ? "Loaded" : "Fetched";
+        var cacheState = result.CacheHit ? "cache hit" : "cache miss";
+
+        Console.WriteLine(
+            $"{action} {result.CandleCount} candles at {result.CachePath} ({cacheState}, gaps {result.Gaps.Count}).");
+    }
+
+    /// <summary>
+    /// Writes the dataset alias save summary.
+    /// </summary>
+    /// <param name="datasetAlias">Saved dataset alias to report.</param>
+    private static void WriteDatasetAliasResult(DatasetAlias datasetAlias)
+    {
+        Console.WriteLine(
+            $"Saved dataset alias '{datasetAlias.Alias}' for {datasetAlias.MarketId} {datasetAlias.Timeframe}.");
+    }
+
+    /// <summary>
+    /// Writes the backtest replay result summary.
+    /// </summary>
+    /// <param name="result">Replay result to report.</param>
+    private static void WriteReplayResult(CandleReplayResult result)
+    {
+        Console.WriteLine(
+            $"Replayed {result.CandleCount} candles for run '{result.RunId}' from {result.CachePath} (gaps {result.Gaps.Count}). Strategy execution is not implemented yet.");
+    }
+
+    /// <summary>
+    /// Generates a simple UTC run ID for backtest commands that do not provide one.
+    /// </summary>
+    /// <param name="utcNow">UTC timestamp used in the run ID.</param>
+    /// <returns>The generated run ID.</returns>
+    private static string GenerateRunId(DateTimeOffset utcNow)
+    {
+        return FormattableString.Invariant($"run-{utcNow:yyyyMMddTHHmmssZ}");
     }
 
     /// <summary>
