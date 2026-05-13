@@ -24,7 +24,7 @@ internal sealed class CcxtBinanceMarketDataClient : IMarketDataClient
     /// <summary>
     /// Maximum OHLCV candles requested per CCXT page.
     /// </summary>
-    private const int FetchLimit = 1000;
+    internal const int FetchLimit = 1000;
 
     /// <inheritdoc />
     public string ExchangeId => WickdBotExchangeId;
@@ -122,16 +122,17 @@ internal sealed class CcxtBinanceMarketDataClient : IMarketDataClient
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var remainingCandles = CountRemainingCandles(
+            var limit = CountNextFetchLimit(
                 sinceMilliseconds,
                 requestEndMilliseconds,
                 timeframeMilliseconds);
-            var limit = Math.Min(FetchLimit, remainingCandles);
-            var ohlcvs = await exchange.FetchOHLCV(
-                market.ExchangeSymbol,
-                timeframe.Value,
-                sinceMilliseconds,
-                limit);
+            var ohlcvs = RequireOhlcvPage(
+                await exchange.FetchOHLCV(
+                    market.ExchangeSymbol,
+                    timeframe.Value,
+                    sinceMilliseconds,
+                    limit),
+                market);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -179,19 +180,60 @@ internal sealed class CcxtBinanceMarketDataClient : IMarketDataClient
     }
 
     /// <summary>
-    /// Counts how many candle opens are still needed for a paged request.
+    /// Validates that CCXT returned a concrete OHLCV page.
+    /// </summary>
+    /// <param name="ohlcvs">OHLCV page returned by CCXT.</param>
+    /// <param name="market">Configured market identity.</param>
+    /// <returns>The validated OHLCV page.</returns>
+    /// <exception cref="WickdBotDataException">Thrown when CCXT returns a null page.</exception>
+    internal static IReadOnlyCollection<OHLCV> RequireOhlcvPage(
+        IReadOnlyCollection<OHLCV>? ohlcvs,
+        MarketDefinition market)
+    {
+        if (ohlcvs is null)
+        {
+            throw new WickdBotDataException(
+                $"CCXT OHLCV fetch returned null for {market.MarketId}.");
+        }
+
+        return ohlcvs;
+    }
+
+    /// <summary>
+    /// Counts the next CCXT fetch page limit for a paged request.
     /// </summary>
     /// <param name="sinceMilliseconds">Current inclusive fetch timestamp in Unix milliseconds.</param>
     /// <param name="endMilliseconds">Exclusive request end timestamp in Unix milliseconds.</param>
     /// <param name="timeframeMilliseconds">Requested timeframe in milliseconds.</param>
-    /// <returns>The remaining candle count.</returns>
-    private static int CountRemainingCandles(
+    /// <returns>A page limit between 1 and <see cref="FetchLimit" />.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the timeframe duration is not positive.</exception>
+    internal static int CountNextFetchLimit(
         long sinceMilliseconds,
         long endMilliseconds,
         long timeframeMilliseconds)
     {
+        if (timeframeMilliseconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(timeframeMilliseconds),
+                "Timeframe duration must be positive.");
+        }
+
         var remainingMilliseconds = endMilliseconds - sinceMilliseconds;
-        return Math.Max(1, (int)Math.Ceiling(remainingMilliseconds / (double)timeframeMilliseconds));
+        if (remainingMilliseconds <= 0)
+        {
+            return 1;
+        }
+
+        var wholeCandles = remainingMilliseconds / timeframeMilliseconds;
+        var includesPartialCandle = remainingMilliseconds % timeframeMilliseconds != 0;
+        var requestedCandles = wholeCandles + (includesPartialCandle ? 1 : 0);
+        if (requestedCandles <= 1)
+        {
+            return 1;
+        }
+
+        return requestedCandles > FetchLimit ? FetchLimit : (int)requestedCandles;
     }
 
     /// <summary>

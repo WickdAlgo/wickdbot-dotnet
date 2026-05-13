@@ -16,6 +16,7 @@ public class HistoricalDataSourceTests
     {
         using var directory = new TemporaryDirectory();
         var request = TestSettingsFactory.CreateRunRequest(directory.DirectoryPath);
+        var cacheDirectory = Path.GetDirectoryName(Path.GetFullPath(request.CandleCachePath));
         var firstCandle = CreateExchangeCandle(new DateTimeOffset(2026, 5, 6, 0, 0, 0, TimeSpan.Zero));
         var fakeClient = new FakeMarketDataClient(
             "binance",
@@ -27,11 +28,14 @@ public class HistoricalDataSourceTests
             ]));
         var source = CreateSource(fakeClient);
 
+        Assert.False(Directory.Exists(cacheDirectory));
+
         var result = await source.LoadOrFetchAsync(request);
 
         Assert.False(result.CacheHit);
         Assert.Equal(2, result.CandleCount);
         Assert.Equal(1, fakeClient.FetchCount);
+        Assert.True(Directory.Exists(cacheDirectory));
         Assert.True(File.Exists(request.CandleCachePath));
 
         var persistedCandles = await CandleJsonLines.ReadAsync(request.CandleCachePath);

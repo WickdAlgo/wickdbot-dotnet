@@ -79,4 +79,58 @@ public class CcxtBinanceMarketDataClientTests
 
         Assert.Contains("missing volume", exception.Message);
     }
+
+    /// <summary>
+    /// Confirms null CCXT OHLCV pages fail as external data failures.
+    /// </summary>
+    [Fact]
+    public void RequireOhlcvPageRejectsNullPage()
+    {
+        var exception = Assert.Throws<WickdBotDataException>(
+            () => CcxtBinanceMarketDataClient.RequireOhlcvPage(null, TestSettingsFactory.BinanceMarket));
+
+        Assert.Contains("CCXT OHLCV fetch returned null for BTC_USDT_PERP", exception.Message);
+    }
+
+    /// <summary>
+    /// Confirms huge remaining ranges are clamped before converting to an int page limit.
+    /// </summary>
+    [Fact]
+    public void CountNextFetchLimitClampsHugeRanges()
+    {
+        var limit = CcxtBinanceMarketDataClient.CountNextFetchLimit(
+            sinceMilliseconds: 0,
+            endMilliseconds: long.MaxValue,
+            timeframeMilliseconds: 60_000);
+
+        Assert.Equal(CcxtBinanceMarketDataClient.FetchLimit, limit);
+    }
+
+    /// <summary>
+    /// Confirms a partial timeframe still fetches one candle.
+    /// </summary>
+    [Fact]
+    public void CountNextFetchLimitReturnsOneForPartialTimeframe()
+    {
+        var limit = CcxtBinanceMarketDataClient.CountNextFetchLimit(
+            sinceMilliseconds: 0,
+            endMilliseconds: 1,
+            timeframeMilliseconds: 60_000);
+
+        Assert.Equal(1, limit);
+    }
+
+    /// <summary>
+    /// Confirms normal ranges round up to the exact number of required candles.
+    /// </summary>
+    [Fact]
+    public void CountNextFetchLimitRoundsUpNormalRanges()
+    {
+        var limit = CcxtBinanceMarketDataClient.CountNextFetchLimit(
+            sinceMilliseconds: 0,
+            endMilliseconds: 121_000,
+            timeframeMilliseconds: 60_000);
+
+        Assert.Equal(3, limit);
+    }
 }
