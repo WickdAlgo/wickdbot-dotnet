@@ -6,6 +6,11 @@
       "ExchangeSymbol": "BTC/USDT:USDT"
     },
     {
+      "MarketId": "ETH_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "ETH/USDT:USDT"
+    },
+    {
       "MarketId": "BTC_USDC_PERP",
       "ExchangeId": "hyperliquid",
       "ExchangeSymbol": "BTC/USDC:USDC"
