@@ -1,0 +1,4 @@
+interface:
+  display_name: "WickdBot Backtest Review"
+  short_description: "Review WickdBot backtest labels and outcomes"
+  default_prompt: "Use $wickdbot-backtest-review to answer questions about a WickdBot backtest run and explain the labels behind the counts."
