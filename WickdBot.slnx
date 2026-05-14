@@ -6,6 +6,7 @@
     <File Path="docs/implementation-history/phase-0.md" />
     <File Path="docs/implementation-history/phase-1.md" />
     <File Path="docs/implementation-history/phase-2.md" />
+    <File Path="docs/implementation-history/phase-3.md" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".gitattributes" />

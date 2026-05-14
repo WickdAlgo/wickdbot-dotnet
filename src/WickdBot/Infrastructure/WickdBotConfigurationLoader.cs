@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using WickdBot.Models;
 
 namespace WickdBot.Infrastructure;
@@ -37,10 +38,11 @@ internal static class WickdBotConfigurationLoader
 
         try
         {
-            using var appSettings = JsonDocument.Parse(File.ReadAllText(appSettingsPath));
+            using var appSettings = LoadMergedAppSettings(appSettingsPath);
             var root = GetRequiredObject(appSettings.RootElement, "WickdBot", "WickdBot");
             var defaults = GetRequiredObject(root, "Defaults", "WickdBot.Defaults");
             var storage = GetRequiredObject(root, "Storage", "WickdBot.Storage");
+            var structure = GetRequiredObject(root, "Structure", "WickdBot.Structure");
 
             var defaultMarketId = GetRequiredString(defaults, "MarketId", "WickdBot.Defaults.MarketId");
             var defaultTimeframe = ParseConfiguredTimeframe(
@@ -49,6 +51,7 @@ internal static class WickdBotConfigurationLoader
             var marketsFilePath = GetRequiredString(defaults, "MarketsFilePath", "WickdBot.Defaults.MarketsFilePath");
             var cacheRoot = GetRequiredString(storage, "CacheRoot", "WickdBot.Storage.CacheRoot");
             var runsRoot = GetRequiredString(storage, "RunsRoot", "WickdBot.Storage.RunsRoot");
+            var structureSettings = ParseStructureSettings(structure);
             var resolvedMarketsPath = ResolvePathRelativeTo(appSettingsPath, marketsFilePath);
             var markets = LoadMarkets(resolvedMarketsPath);
 
@@ -63,11 +66,82 @@ internal static class WickdBotConfigurationLoader
                 resolvedMarketsPath,
                 cacheRoot,
                 runsRoot,
+                structureSettings,
                 markets);
         }
         catch (JsonException ex)
         {
             throw new WickdBotConfigurationException($"Configuration JSON is invalid: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Loads appsettings.json and applies an optional appsettings.Local.json override from the same directory.
+    /// </summary>
+    /// <param name="appSettingsPath">Path to the committed appsettings.json file.</param>
+    /// <returns>The merged configuration document.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when either settings document is not a JSON object.</exception>
+    private static JsonDocument LoadMergedAppSettings(string appSettingsPath)
+    {
+        var root = LoadAppSettingsObject(appSettingsPath);
+        var localPath = BuildLocalAppSettingsPath(appSettingsPath);
+        if (File.Exists(localPath))
+        {
+            var localRoot = LoadAppSettingsObject(localPath);
+            MergeObject(root, localRoot);
+        }
+
+        return JsonDocument.Parse(root.ToJsonString());
+    }
+
+    /// <summary>
+    /// Loads a settings document as a mutable JSON object.
+    /// </summary>
+    /// <param name="path">Settings file path.</param>
+    /// <returns>The root JSON object.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the settings root is not a JSON object.</exception>
+    private static JsonObject LoadAppSettingsObject(string path)
+    {
+        var node = JsonNode.Parse(File.ReadAllText(path))
+            ?? throw new WickdBotConfigurationException($"Configuration JSON is empty: {path}");
+        if (node is JsonObject jsonObject)
+        {
+            return jsonObject;
+        }
+
+        throw new WickdBotConfigurationException($"Configuration root must be an object: {path}");
+    }
+
+    /// <summary>
+    /// Builds the optional local override path for a settings file.
+    /// </summary>
+    /// <param name="appSettingsPath">Path to the committed appsettings.json file.</param>
+    /// <returns>The expected local override path.</returns>
+    private static string BuildLocalAppSettingsPath(string appSettingsPath)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(appSettingsPath))
+            ?? throw new WickdBotConfigurationException($"Cannot resolve directory for {appSettingsPath}.");
+
+        return Path.Combine(directory, "appsettings.Local.json");
+    }
+
+    /// <summary>
+    /// Recursively overlays local settings onto committed settings.
+    /// </summary>
+    /// <param name="target">Base settings object to mutate.</param>
+    /// <param name="source">Override settings object.</param>
+    private static void MergeObject(JsonObject target, JsonObject source)
+    {
+        foreach (var property in source.ToArray())
+        {
+            if (property.Value is JsonObject sourceObject
+                && target[property.Key] is JsonObject targetObject)
+            {
+                MergeObject(targetObject, sourceObject);
+                continue;
+            }
+
+            target[property.Key] = property.Value?.DeepClone();
         }
     }
 
@@ -108,6 +182,55 @@ internal static class WickdBotConfigurationLoader
         }
 
         return markets;
+    }
+
+    /// <summary>
+    /// Parses and validates structure-engine configuration.
+    /// </summary>
+    /// <param name="structure">The WickdBot.Structure object.</param>
+    /// <returns>Validated structure settings.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when a required value is missing or invalid.</exception>
+    private static StructureSettings ParseStructureSettings(JsonElement structure)
+    {
+        var swingFractalWindow = GetRequiredInt32(
+            structure,
+            "SwingFractalWindow",
+            "WickdBot.Structure.SwingFractalWindow");
+        var equalLevelToleranceBasisPoints = GetRequiredDecimal(
+            structure,
+            "EqualLevelToleranceBasisPoints",
+            "WickdBot.Structure.EqualLevelToleranceBasisPoints");
+        var orderBlockSearchBackCandles = GetRequiredInt32(
+            structure,
+            "OrderBlockSearchBackCandles",
+            "WickdBot.Structure.OrderBlockSearchBackCandles");
+        var expansionLookbackCandles = GetRequiredInt32(
+            structure,
+            "ExpansionLookbackCandles",
+            "WickdBot.Structure.ExpansionLookbackCandles");
+        var expansionBodyToAverageRange = GetRequiredDecimal(
+            structure,
+            "ExpansionBodyToAverageRange",
+            "WickdBot.Structure.ExpansionBodyToAverageRange");
+        var expansionFvgWindowCandles = GetRequiredInt32(
+            structure,
+            "ExpansionFvgWindowCandles",
+            "WickdBot.Structure.ExpansionFvgWindowCandles");
+
+        EnsureAtLeast(swingFractalWindow, 1, "WickdBot.Structure.SwingFractalWindow");
+        EnsureAtLeast(equalLevelToleranceBasisPoints, 0m, "WickdBot.Structure.EqualLevelToleranceBasisPoints");
+        EnsureAtLeast(orderBlockSearchBackCandles, 1, "WickdBot.Structure.OrderBlockSearchBackCandles");
+        EnsureAtLeast(expansionLookbackCandles, 1, "WickdBot.Structure.ExpansionLookbackCandles");
+        EnsureGreaterThanZero(expansionBodyToAverageRange, "WickdBot.Structure.ExpansionBodyToAverageRange");
+        EnsureAtLeast(expansionFvgWindowCandles, 1, "WickdBot.Structure.ExpansionFvgWindowCandles");
+
+        return new StructureSettings(
+            swingFractalWindow,
+            equalLevelToleranceBasisPoints,
+            orderBlockSearchBackCandles,
+            expansionLookbackCandles,
+            expansionBodyToAverageRange,
+            expansionFvgWindowCandles);
     }
 
     /// <summary>
@@ -232,6 +355,91 @@ internal static class WickdBotConfigurationLoader
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// Reads a required integer JSON number property.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required integer value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing or is not an integer.</exception>
+    private static int GetRequiredInt32(JsonElement parent, string propertyName, string path)
+    {
+        var property = GetRequiredProperty(parent, propertyName, path);
+        if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out var value))
+        {
+            throw new WickdBotConfigurationException($"Configuration value '{path}' must be an integer.");
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Reads a required decimal JSON number property.
+    /// </summary>
+    /// <param name="parent">The parent JSON element.</param>
+    /// <param name="propertyName">The property name to read.</param>
+    /// <param name="path">The configuration path used in error messages.</param>
+    /// <returns>The required decimal value.</returns>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the property is missing or is not numeric.</exception>
+    private static decimal GetRequiredDecimal(JsonElement parent, string propertyName, string path)
+    {
+        var property = GetRequiredProperty(parent, propertyName, path);
+        if (property.ValueKind != JsonValueKind.Number || !property.TryGetDecimal(out var value))
+        {
+            throw new WickdBotConfigurationException($"Configuration value '{path}' must be a number.");
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Validates that an integer configuration value is at least the supplied minimum.
+    /// </summary>
+    /// <param name="value">The value to validate.</param>
+    /// <param name="minimum">Inclusive minimum value.</param>
+    /// <param name="path">Configuration path used in error messages.</param>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the value is too small.</exception>
+    private static void EnsureAtLeast(int value, int minimum, string path)
+    {
+        if (value < minimum)
+        {
+            throw new WickdBotConfigurationException(
+                $"Configuration value '{path}' must be at least {minimum}.");
+        }
+    }
+
+    /// <summary>
+    /// Validates that a decimal configuration value is at least the supplied minimum.
+    /// </summary>
+    /// <param name="value">The value to validate.</param>
+    /// <param name="minimum">Inclusive minimum value.</param>
+    /// <param name="path">Configuration path used in error messages.</param>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the value is too small.</exception>
+    private static void EnsureAtLeast(decimal value, decimal minimum, string path)
+    {
+        if (value < minimum)
+        {
+            throw new WickdBotConfigurationException(
+                $"Configuration value '{path}' must be at least {minimum}.");
+        }
+    }
+
+    /// <summary>
+    /// Validates that a decimal configuration value is positive.
+    /// </summary>
+    /// <param name="value">The value to validate.</param>
+    /// <param name="path">Configuration path used in error messages.</param>
+    /// <exception cref="WickdBotConfigurationException">Thrown when the value is zero or negative.</exception>
+    private static void EnsureGreaterThanZero(decimal value, string path)
+    {
+        if (value <= 0m)
+        {
+            throw new WickdBotConfigurationException(
+                $"Configuration value '{path}' must be greater than 0.");
+        }
     }
 
     /// <summary>

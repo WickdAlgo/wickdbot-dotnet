@@ -1,7 +1,9 @@
 #nullable enable
 
 using System.CommandLine;
+using WickdBot.Backtesting;
 using WickdBot.Data;
+using WickdBot.Engines;
 using WickdBot.Infrastructure;
 using WickdBot.Models;
 
@@ -37,17 +39,20 @@ internal static class Program
     /// </summary>
     /// <param name="historicalDataSource">Historical data source used by fetch and backtest commands.</param>
     /// <param name="loadSettings">Settings loader used to resolve run commands.</param>
+    /// <param name="backtestPipeline">Backtest pipeline used by the backtest command.</param>
     /// <returns>The configured root command.</returns>
     internal static RootCommand BuildRootCommand(
         HistoricalDataSource? historicalDataSource = null,
-        Func<WickdBotSettings>? loadSettings = null)
+        Func<WickdBotSettings>? loadSettings = null,
+        BacktestPipeline? backtestPipeline = null)
     {
         var dataSource = historicalDataSource ?? HistoricalDataSource.CreateDefault();
+        var pipeline = backtestPipeline ?? new BacktestPipeline(dataSource);
         var settingsLoader = loadSettings ?? WickdBotConfigurationLoader.LoadDefault;
         var rootCommand = new RootCommand("WickdBot trading research CLI.");
 
         rootCommand.Subcommands.Add(CreateFetchCommand(dataSource, settingsLoader));
-        rootCommand.Subcommands.Add(CreateBacktestCommand(dataSource, settingsLoader));
+        rootCommand.Subcommands.Add(CreateBacktestCommand(pipeline, settingsLoader));
         rootCommand.Subcommands.Add(CreateAnalyzeCommand());
 
         return rootCommand;
@@ -128,11 +133,11 @@ internal static class Program
     /// <summary>
     /// Creates the backtest command that validates a deterministic run request before placeholder execution.
     /// </summary>
-    /// <param name="historicalDataSource">Historical data source used to replay cached candles.</param>
+    /// <param name="backtestPipeline">Backtest pipeline used to replay cached candles and write structure events.</param>
     /// <param name="loadSettings">Settings loader used to resolve the request.</param>
     /// <returns>The configured backtest command.</returns>
     private static Command CreateBacktestCommand(
-        HistoricalDataSource historicalDataSource,
+        BacktestPipeline backtestPipeline,
         Func<WickdBotSettings> loadSettings)
     {
         var marketOption = CreateMarketOption(required: false);
@@ -179,11 +184,11 @@ internal static class Program
 
             try
             {
-                var result = await historicalDataSource.ReplayAsync(request, runId, cancellationToken);
-                WriteReplayResult(result);
+                var result = await backtestPipeline.RunAsync(request, runId, settings, cancellationToken);
+                WriteBacktestResult(result);
                 return 0;
             }
-            catch (WickdBotDataException ex)
+            catch (Exception ex) when (ex is WickdBotDataException or StructureException)
             {
                 Console.Error.WriteLine(ex.Message);
                 return ValidationErrorExitCode;
@@ -515,13 +520,13 @@ internal static class Program
     }
 
     /// <summary>
-    /// Writes the backtest replay result summary.
+    /// Writes the Phase 3 backtest result summary.
     /// </summary>
-    /// <param name="result">Replay result to report.</param>
-    private static void WriteReplayResult(CandleReplayResult result)
+    /// <param name="result">Backtest pipeline result to report.</param>
+    private static void WriteBacktestResult(BacktestPipelineResult result)
     {
         Console.WriteLine(
-            $"Replayed {result.CandleCount} candles for run '{result.RunId}' from {result.CachePath} (gaps {result.Gaps.Count}). Strategy execution is not implemented yet.");
+            $"Replayed {result.ReplayResult.CandleCount} candles for run '{result.RunId}' from {result.ReplayResult.CachePath} (gaps {result.ReplayResult.Gaps.Count}). Wrote {result.StructureResult.EventCount} structure events to {result.StructuresPath}. Setup and trade execution are not implemented yet.");
     }
 
     /// <summary>

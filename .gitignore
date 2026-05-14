@@ -36,6 +36,7 @@ docs/api/.manifest
 docs/api/**/.manifest
 
 # WickdBot runtime outputs
+src/WickdBot/appsettings.Local.json
 data/datasets.json
 data/datasets.json.lock
 data/datasets.json.*.tmp

@@ -192,7 +192,12 @@ public class CommandLineWiringTests
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Replayed 1 candles for run 'phase-2-test'", result.Output);
-        Assert.Contains("Strategy execution is not implemented yet", result.Output);
+        Assert.Contains("Wrote 2 structure events", result.Output);
+        Assert.Contains("Setup and trade execution are not implemented yet", result.Output);
+        Assert.True(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "structures.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "setups.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "trades.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "outcomes.jsonl")));
     }
 
     /// <summary>
@@ -233,6 +238,7 @@ public class CommandLineWiringTests
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Replayed 1 candles for run 'phase-2-test'", result.Output);
+        Assert.True(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "structures.jsonl")));
     }
 
     /// <summary>

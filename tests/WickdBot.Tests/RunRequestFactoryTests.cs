@@ -134,6 +134,7 @@ public class RunRequestFactoryTests
             "markets.json",
             "data/cache",
             "runs",
+            TestSettingsFactory.CreateStructureSettings(),
             new Dictionary<string, MarketDefinition>(StringComparer.Ordinal)
             {
                 [market.MarketId] = market
