@@ -52,7 +52,7 @@ internal static class TestSettingsFactory
     internal static StructureSettings CreateStructureSettings()
     {
         return new StructureSettings(
-            SwingFractalWindow: 1,
+            MinimumSwingSeparationCandles: 1,
             EqualLevelToleranceBasisPoints: 5m,
             OrderBlockSearchBackCandles: 3,
             ExpansionLookbackCandles: 2,

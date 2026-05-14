@@ -21,7 +21,7 @@ public class ConfigurationLoaderTests
 
         Assert.Equal("BTC_USDT_PERP", settings.DefaultMarketId);
         Assert.Equal("5m", settings.DefaultTimeframe.Value);
-        Assert.Equal(2, settings.Structure.SwingFractalWindow);
+        Assert.Equal(2, settings.Structure.MinimumSwingSeparationCandles);
         Assert.Equal(1.5m, settings.Structure.ExpansionBodyToAverageRange);
         Assert.Equal("binance", market.ExchangeId);
         Assert.Equal("BTC/USDT:USDT", market.ExchangeSymbol);
@@ -41,7 +41,7 @@ public class ConfigurationLoaderTests
             {
               "WickdBot": {
                 "Structure": {
-                  "SwingFractalWindow": 4,
+                  "MinimumSwingSeparationCandles": 4,
                   "ExpansionBodyToAverageRange": 2.25
                 }
               }
@@ -50,7 +50,7 @@ public class ConfigurationLoaderTests
 
         var settings = WickdBotConfigurationLoader.Load(appSettingsPath);
 
-        Assert.Equal(4, settings.Structure.SwingFractalWindow);
+        Assert.Equal(4, settings.Structure.MinimumSwingSeparationCandles);
         Assert.Equal(5m, settings.Structure.EqualLevelToleranceBasisPoints);
         Assert.Equal(2.25m, settings.Structure.ExpansionBodyToAverageRange);
     }
@@ -68,7 +68,7 @@ public class ConfigurationLoaderTests
             structureJson:
             """
                 "Structure": {
-                  "SwingFractalWindow": 0,
+                  "MinimumSwingSeparationCandles": 0,
                   "EqualLevelToleranceBasisPoints": 5,
                   "OrderBlockSearchBackCandles": 3,
                   "ExpansionLookbackCandles": 20,
@@ -79,7 +79,7 @@ public class ConfigurationLoaderTests
 
         var exception = Assert.Throws<WickdBotConfigurationException>(() => WickdBotConfigurationLoader.Load(appSettingsPath));
 
-        Assert.Contains("WickdBot.Structure.SwingFractalWindow", exception.Message);
+        Assert.Contains("WickdBot.Structure.MinimumSwingSeparationCandles", exception.Message);
         Assert.Contains("at least 1", exception.Message);
     }
 
@@ -241,7 +241,7 @@ public class ConfigurationLoaderTests
         structureJson ??=
             """
                 "Structure": {
-                  "SwingFractalWindow": 2,
+                  "MinimumSwingSeparationCandles": 2,
                   "EqualLevelToleranceBasisPoints": 5,
                   "OrderBlockSearchBackCandles": 3,
                   "ExpansionLookbackCandles": 20,

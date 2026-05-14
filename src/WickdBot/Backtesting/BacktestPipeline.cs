@@ -86,7 +86,7 @@ internal sealed class BacktestPipeline
     /// Ensures a run ID can be used as one local path segment.
     /// </summary>
     /// <param name="runId">Run ID to validate.</param>
-    /// <exception cref="WickdBotDataException">Thrown when the run ID is empty or contains unsupported characters.</exception>
+    /// <exception cref="WickdBotDataException">Thrown when the run ID is empty, path-like, or contains unsupported characters.</exception>
     private static void ValidateRunId(string runId)
     {
         if (string.IsNullOrWhiteSpace(runId))
@@ -94,14 +94,33 @@ internal sealed class BacktestPipeline
             throw new WickdBotDataException("Backtest run ID is required.");
         }
 
+        var hasLetterOrDigit = false;
         foreach (var character in runId)
         {
             if (!char.IsAsciiLetterOrDigit(character)
                 && character is not '-' and not '_' and not '.')
             {
-                throw new WickdBotDataException(
-                    "Backtest run ID can only contain letters, numbers, '.', '_', and '-'.");
+                throw new WickdBotDataException(CreateInvalidRunIdMessage());
+            }
+
+            if (char.IsAsciiLetterOrDigit(character))
+            {
+                hasLetterOrDigit = true;
             }
         }
+
+        if (!hasLetterOrDigit || runId is "." or "..")
+        {
+            throw new WickdBotDataException(CreateInvalidRunIdMessage());
+        }
+    }
+
+    /// <summary>
+    /// Creates the shared validation message for unsafe run IDs.
+    /// </summary>
+    /// <returns>The validation message.</returns>
+    private static string CreateInvalidRunIdMessage()
+    {
+        return "Backtest run ID must include at least one letter or digit and can only contain letters, numbers, '.', '_', and '-'.";
     }
 }

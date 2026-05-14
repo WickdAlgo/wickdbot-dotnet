@@ -129,6 +129,54 @@ public class StructureEngineTests
     }
 
     /// <summary>
+    /// Confirms one-candle flip noise does not finalize swings when minimum separation is higher.
+    /// </summary>
+    [Fact]
+    public void ProcessDoesNotFinalizeTooCloseInterveningSwing()
+    {
+        var result = new StructureEngine().Process(
+            [
+                CreateCandle(0, 10m, 10m, 5m, 10m),
+                CreateCandle(1, 12m, 15m, 9m, 12m),
+                CreateCandle(2, 10m, 14m, 7m, 10m),
+                CreateCandle(3, 15m, 16m, 10m, 15m)
+            ],
+            CreateSettings(minimumSwingSeparationCandles: 2));
+
+        Assert.DoesNotContain(result.Events, structureEvent => structureEvent.EventType == StructureEventType.SwingHighFinalized);
+        Assert.DoesNotContain(result.Events, structureEvent => structureEvent.EventType == StructureEventType.SwingLowFinalized);
+        Assert.DoesNotContain(result.Events, structureEvent => structureEvent.EventType == StructureEventType.BuySideLiquidityBreached);
+    }
+
+    /// <summary>
+    /// Confirms separated intervening swings still finalize when they satisfy the configured minimum distance.
+    /// </summary>
+    [Fact]
+    public void ProcessFinalizesSeparatedInterveningSwing()
+    {
+        var result = new StructureEngine().Process(
+            [
+                CreateCandle(0, 10m, 10m, 5m, 10m),
+                CreateCandle(1, 12m, 15m, 9m, 12m),
+                CreateCandle(2, 11m, 14m, 8m, 11m),
+                CreateCandle(3, 10m, 13m, 7m, 10m),
+                CreateCandle(4, 12m, 14m, 9m, 12m),
+                CreateCandle(5, 15m, 16m, 10m, 15m)
+            ],
+            CreateSettings(minimumSwingSeparationCandles: 2));
+
+        var finalizedHigh = Assert.Single(
+            result.Events,
+            structureEvent => structureEvent.EventType == StructureEventType.SwingHighFinalized);
+        var finalizedLow = Assert.Single(
+            result.Events,
+            structureEvent => structureEvent.EventType == StructureEventType.SwingLowFinalized);
+
+        Assert.Equal(15m, finalizedHigh.Price);
+        Assert.Equal(7m, finalizedLow.Price);
+    }
+
+    /// <summary>
     /// Confirms swing candidates do not create liquidity before finalization.
     /// </summary>
     [Fact]
@@ -430,15 +478,17 @@ public class StructureEngineTests
     /// <summary>
     /// Creates structure settings for compact unit-test candles.
     /// </summary>
+    /// <param name="minimumSwingSeparationCandles">Minimum candle distance for swing finalization.</param>
     /// <param name="equalLevelToleranceBasisPoints">Equal-level tolerance override.</param>
     /// <param name="expansionBodyToAverageRange">Expansion body threshold override.</param>
     /// <returns>Validated structure settings.</returns>
     private static StructureSettings CreateSettings(
+        int minimumSwingSeparationCandles = 1,
         decimal equalLevelToleranceBasisPoints = 5m,
         decimal expansionBodyToAverageRange = 1.5m)
     {
         return new StructureSettings(
-            SwingFractalWindow: 1,
+            MinimumSwingSeparationCandles: minimumSwingSeparationCandles,
             EqualLevelToleranceBasisPoints: equalLevelToleranceBasisPoints,
             OrderBlockSearchBackCandles: 3,
             ExpansionLookbackCandles: 1,

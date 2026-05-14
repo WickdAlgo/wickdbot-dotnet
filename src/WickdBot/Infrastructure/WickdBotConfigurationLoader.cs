@@ -192,10 +192,10 @@ internal static class WickdBotConfigurationLoader
     /// <exception cref="WickdBotConfigurationException">Thrown when a required value is missing or invalid.</exception>
     private static StructureSettings ParseStructureSettings(JsonElement structure)
     {
-        var swingFractalWindow = GetRequiredInt32(
+        var minimumSwingSeparationCandles = GetRequiredInt32(
             structure,
-            "SwingFractalWindow",
-            "WickdBot.Structure.SwingFractalWindow");
+            "MinimumSwingSeparationCandles",
+            "WickdBot.Structure.MinimumSwingSeparationCandles");
         var equalLevelToleranceBasisPoints = GetRequiredDecimal(
             structure,
             "EqualLevelToleranceBasisPoints",
@@ -217,7 +217,7 @@ internal static class WickdBotConfigurationLoader
             "ExpansionFvgWindowCandles",
             "WickdBot.Structure.ExpansionFvgWindowCandles");
 
-        EnsureAtLeast(swingFractalWindow, 1, "WickdBot.Structure.SwingFractalWindow");
+        EnsureAtLeast(minimumSwingSeparationCandles, 1, "WickdBot.Structure.MinimumSwingSeparationCandles");
         EnsureAtLeast(equalLevelToleranceBasisPoints, 0m, "WickdBot.Structure.EqualLevelToleranceBasisPoints");
         EnsureAtLeast(orderBlockSearchBackCandles, 1, "WickdBot.Structure.OrderBlockSearchBackCandles");
         EnsureAtLeast(expansionLookbackCandles, 1, "WickdBot.Structure.ExpansionLookbackCandles");
@@ -225,7 +225,7 @@ internal static class WickdBotConfigurationLoader
         EnsureAtLeast(expansionFvgWindowCandles, 1, "WickdBot.Structure.ExpansionFvgWindowCandles");
 
         return new StructureSettings(
-            swingFractalWindow,
+            minimumSwingSeparationCandles,
             equalLevelToleranceBasisPoints,
             orderBlockSearchBackCandles,
             expansionLookbackCandles,

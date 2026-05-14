@@ -526,6 +526,14 @@ internal sealed class StructureEngine
                 return;
             }
 
+            if (!HasMinimumSwingSeparation(activeHighCandidate, lowBetweenHighsCandidate, index))
+            {
+                UpdateSwingCandidate(activeHighCandidate, index, candle.High);
+                highBetweenLowsCandidate = activeHighCandidate;
+                lowBetweenHighsCandidate = null;
+                return;
+            }
+
             FinalizeSwing(activeHighCandidate, index);
             FinalizeSwing(lowBetweenHighsCandidate, index);
             activeLowCandidate = lowBetweenHighsCandidate;
@@ -547,6 +555,14 @@ internal sealed class StructureEngine
             {
                 UpdateSwingCandidate(activeLowCandidate, index, candle.Low);
                 lowBetweenHighsCandidate = activeLowCandidate;
+                return;
+            }
+
+            if (!HasMinimumSwingSeparation(activeLowCandidate, highBetweenLowsCandidate, index))
+            {
+                UpdateSwingCandidate(activeLowCandidate, index, candle.Low);
+                lowBetweenHighsCandidate = activeLowCandidate;
+                highBetweenLowsCandidate = null;
                 return;
             }
 
@@ -592,6 +608,23 @@ internal sealed class StructureEngine
             {
                 UpdateSwingCandidate(highBetweenLowsCandidate, index, high);
             }
+        }
+
+        /// <summary>
+        /// Determines whether an intervening swing is far enough from both same-side anchors to finalize.
+        /// </summary>
+        /// <param name="sameSideAnchor">The prior same-side swing candidate.</param>
+        /// <param name="interveningOppositeSwing">The opposite swing candidate between same-side anchors.</param>
+        /// <param name="currentSameSideIndex">The current candle index that broke the same-side anchor.</param>
+        /// <returns><see langword="true"/> when the intervening swing satisfies the configured separation.</returns>
+        private bool HasMinimumSwingSeparation(
+            SwingPoint sameSideAnchor,
+            SwingPoint interveningOppositeSwing,
+            int currentSameSideIndex)
+        {
+            var minimum = settings.MinimumSwingSeparationCandles;
+            return interveningOppositeSwing.Index - sameSideAnchor.Index >= minimum
+                && currentSameSideIndex - interveningOppositeSwing.Index >= minimum;
         }
 
         private SwingPoint CreateSwingCandidate(SwingKind kind, int index, decimal price)

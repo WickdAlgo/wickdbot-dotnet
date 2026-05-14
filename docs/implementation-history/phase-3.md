@@ -15,7 +15,7 @@ Turn replayed historical candles into deterministic, market-agnostic structure e
   - `StructureSnapshot`, if useful for later setup evaluation
   - structure-specific IDs such as `swing-000001`, `liq-000001`, `ob-000001`, and `fvg-000001`.
 - Bind and validate structure settings from `appsettings.json`:
-  - `SwingFractalWindow`
+  - `MinimumSwingSeparationCandles`
   - `EqualLevelToleranceBasisPoints`
   - `OrderBlockSearchBackCandles`
   - `ExpansionLookbackCandles`
@@ -124,14 +124,16 @@ dotnet test .\WickdBot.slnx
 dotnet run --project .\src\WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
 dotnet run --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-smoke
 dotnet run --no-restore --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-refined-smoke
+dotnet run --no-restore --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-swing-settings-smoke
 ```
 
 Results:
 
-- Test suite passed with 87 tests.
+- Test suite passed with 94 tests after the run ID and swing-setting review cleanup.
 - `fetch` saved dataset alias `may6-session` and wrote 372 cached candles with 0 gaps.
 - Initial `backtest` replayed 372 cached candles and wrote 518 structure events to `runs/phase-3-smoke/structures.jsonl`.
 - Refined swing/liquidity `backtest` replayed 372 cached candles and wrote 726 structure events to `runs/phase-3-refined-smoke/structures.jsonl`.
+- Swing-separation `backtest` replayed 372 cached candles and wrote 504 structure events to `runs/phase-3-swing-settings-smoke/structures.jsonl`.
 - Backtest still stops before setup evaluation, trade creation, settlement outcomes, and analysis output.
 
 ## Notes

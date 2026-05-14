@@ -187,17 +187,98 @@ public class CommandLineWiringTests
                 "--to",
                 "2026-05-06T00:05:00Z",
                 "--run-id",
-                "phase-2-test"
+                "phase-3-smoke"
             ]);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Replayed 1 candles for run 'phase-2-test'", result.Output);
+        Assert.Contains("Replayed 1 candles for run 'phase-3-smoke'", result.Output);
         Assert.Contains("Wrote 2 structure events", result.Output);
         Assert.Contains("Setup and trade execution are not implemented yet", result.Output);
-        Assert.True(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "structures.jsonl")));
-        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "setups.jsonl")));
-        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "trades.jsonl")));
-        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-2-test", "outcomes.jsonl")));
+        Assert.True(File.Exists(Path.Combine(settings.RunsRoot, "phase-3-smoke", "structures.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-3-smoke", "setups.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-3-smoke", "trades.jsonl")));
+        Assert.False(File.Exists(Path.Combine(settings.RunsRoot, "phase-3-smoke", "outcomes.jsonl")));
+    }
+
+    /// <summary>
+    /// Confirms backtest accepts run IDs that use the supported separator characters with letters or digits.
+    /// </summary>
+    [Fact]
+    public async Task BacktestAcceptsRunIdWithDotAndUnderscore()
+    {
+        using var directory = new TemporaryDirectory();
+        var settings = TestSettingsFactory.CreateSettings(directory.DirectoryPath);
+        var request = TestSettingsFactory.CreateRunRequest(
+            directory.DirectoryPath,
+            fromUtc: new DateTimeOffset(2026, 5, 6, 0, 0, 0, TimeSpan.Zero),
+            toUtc: new DateTimeOffset(2026, 5, 6, 0, 5, 0, TimeSpan.Zero));
+        await CandleJsonLines.WriteAsync(
+            request.CandleCachePath,
+            [
+                CreateHistoricalCandle(new DateTimeOffset(2026, 5, 6, 0, 0, 0, TimeSpan.Zero))
+            ]);
+        var command = Program.BuildRootCommand(
+            new HistoricalDataSource([], CreateCompletedTimeProvider()),
+            () => settings);
+
+        var result = await CommandLineTestRunner.InvokeCommandAsync(
+            command,
+            [
+                "backtest",
+                "--market",
+                "BTC_USDT_PERP",
+                "--timeframe",
+                "5m",
+                "--from",
+                "2026-05-06T00:00:00Z",
+                "--to",
+                "2026-05-06T00:05:00Z",
+                "--run-id",
+                "phase_3.smoke"
+            ]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Replayed 1 candles for run 'phase_3.smoke'", result.Output);
+        Assert.True(File.Exists(Path.Combine(settings.RunsRoot, "phase_3.smoke", "structures.jsonl")));
+    }
+
+    /// <summary>
+    /// Confirms backtest still accepts the generated UTC run ID when --run-id is omitted.
+    /// </summary>
+    [Fact]
+    public async Task BacktestAcceptsGeneratedUtcRunId()
+    {
+        using var directory = new TemporaryDirectory();
+        var settings = TestSettingsFactory.CreateSettings(directory.DirectoryPath);
+        var request = TestSettingsFactory.CreateRunRequest(
+            directory.DirectoryPath,
+            fromUtc: new DateTimeOffset(2026, 5, 6, 0, 0, 0, TimeSpan.Zero),
+            toUtc: new DateTimeOffset(2026, 5, 6, 0, 5, 0, TimeSpan.Zero));
+        await CandleJsonLines.WriteAsync(
+            request.CandleCachePath,
+            [
+                CreateHistoricalCandle(new DateTimeOffset(2026, 5, 6, 0, 0, 0, TimeSpan.Zero))
+            ]);
+        var command = Program.BuildRootCommand(
+            new HistoricalDataSource([], CreateCompletedTimeProvider()),
+            () => settings);
+
+        var result = await CommandLineTestRunner.InvokeCommandAsync(
+            command,
+            [
+                "backtest",
+                "--market",
+                "BTC_USDT_PERP",
+                "--timeframe",
+                "5m",
+                "--from",
+                "2026-05-06T00:00:00Z",
+                "--to",
+                "2026-05-06T00:05:00Z"
+            ]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Replayed 1 candles for run '", result.Output);
     }
 
     /// <summary>

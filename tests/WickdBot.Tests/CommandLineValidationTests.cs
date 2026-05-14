@@ -133,6 +133,54 @@ public class CommandLineValidationTests
                 "2026-05-06T00:00:00Z"
             ],
             "end time must be later"
+        },
+        {
+            [
+                "backtest",
+                "--market",
+                "BTC_USDT_PERP",
+                "--timeframe",
+                "5m",
+                "--from",
+                "2026-05-06T00:00:00Z",
+                "--to",
+                "2026-05-06T00:15:00Z",
+                "--run-id",
+                "."
+            ],
+            "must include at least one letter or digit"
+        },
+        {
+            [
+                "backtest",
+                "--market",
+                "BTC_USDT_PERP",
+                "--timeframe",
+                "5m",
+                "--from",
+                "2026-05-06T00:00:00Z",
+                "--to",
+                "2026-05-06T00:15:00Z",
+                "--run-id",
+                ".."
+            ],
+            "must include at least one letter or digit"
+        },
+        {
+            [
+                "backtest",
+                "--market",
+                "BTC_USDT_PERP",
+                "--timeframe",
+                "5m",
+                "--from",
+                "2026-05-06T00:00:00Z",
+                "--to",
+                "2026-05-06T00:15:00Z",
+                "--run-id",
+                "..."
+            ],
+            "must include at least one letter or digit"
         }
     };
 
