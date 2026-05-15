@@ -178,6 +178,7 @@ Every journal record carries `runId`, `marketId`, and `timeframe`.
 - Actual distance between equal levels is journaled.
 - Swing detection uses an alternating candidate/final swing model in the MVP.
 - `MinimumSwingSeparationCandles` filters one-candle flip noise before finalized swings create liquidity.
+- Finalized swings are immutable anchors; later candidate updates must create or update unresolved candidates only.
 - Adaptive/volatility-based swing logic is future work.
 
 ## Structure Rules

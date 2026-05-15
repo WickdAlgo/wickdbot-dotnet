@@ -33,6 +33,8 @@ Turn replayed historical candles into deterministic, market-agnostic structure e
   - track candidate swing highs/lows;
   - update candidates when price extends farther;
   - finalize the intervening opposite swing when a prior same-side swing is broken;
+  - keep finalized swing anchors immutable after they are journaled;
+  - keep finalized swing events alternating high/low without same-side repeats;
   - leave the far-right unresolved swing as a candidate.
 - Implement equal high and equal low liquidity from finalized swings with configured basis-point tolerance and journal the actual level distance.
 - Implement staged liquidity-taking classification:
@@ -84,6 +86,7 @@ Turn replayed historical candles into deterministic, market-agnostic structure e
   - strictly increasing open times.
 - Implemented configured detection for:
   - alternating swing candidates, candidate updates, and finalized swings;
+  - immutable finalized swings that cannot receive later candidate updates;
   - EQH/EQL liquidity from finalized swings;
   - staged buy-side and sell-side liquidity breaches, sweep candidates, rejection confirmations, sweep confirmations, and breakout confirmations;
   - bullish and bearish order block discovery;

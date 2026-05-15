@@ -177,6 +177,35 @@ public class StructureEngineTests
     }
 
     /// <summary>
+    /// Confirms finalized swings stay immutable while later opposite breaks create separate candidates.
+    /// </summary>
+    [Fact]
+    public void ProcessKeepsFinalizedSwingsImmutableAndAlternating()
+    {
+        var result = new StructureEngine().Process(
+            CreateSwingLifecycleRegressionCandles(),
+            CreateSettings(minimumSwingSeparationCandles: 2));
+        var finalizedSwings = GetFinalizedSwingEvents(result.Events);
+        var high2369 = Assert.Single(
+            finalizedSwings,
+            structureEvent => structureEvent.EventType == StructureEventType.SwingHighFinalized
+                && structureEvent.Price == 2369.46m);
+        var low2310 = Assert.Single(
+            finalizedSwings,
+            structureEvent => structureEvent.EventType == StructureEventType.SwingLowFinalized
+                && structureEvent.Price == 2310.01m);
+        var high2381 = Assert.Single(
+            finalizedSwings,
+            structureEvent => structureEvent.EventType == StructureEventType.SwingHighFinalized
+                && structureEvent.Price == 2381.88m);
+
+        AssertNoCandidateUpdatesAfterFinalization(result.Events);
+        AssertFinalizedSwingsAlternate(finalizedSwings);
+        Assert.True(high2369.Sequence < low2310.Sequence);
+        Assert.True(low2310.Sequence < high2381.Sequence);
+    }
+
+    /// <summary>
     /// Confirms swing candidates do not create liquidity before finalization.
     /// </summary>
     [Fact]
@@ -459,6 +488,29 @@ public class StructureEngineTests
     }
 
     /// <summary>
+    /// Creates a compact ETH-like sequence that previously mutated a finalized low candidate.
+    /// </summary>
+    /// <returns>Backtest candles that exercise finalized swing immutability.</returns>
+    private static IReadOnlyList<CandleEvent> CreateSwingLifecycleRegressionCandles()
+    {
+        return
+        [
+            CreateCandle(0, 2363.42m, 2367.66m, 2355.69m, 2357.41m),
+            CreateCandle(1, 2357.40m, 2358.10m, 2350.05m, 2356.79m),
+            CreateCandle(2, 2364.59m, 2369.46m, 2352.44m, 2353.52m),
+            CreateCandle(3, 2353.51m, 2355.71m, 2344.77m, 2352.37m),
+            CreateCandle(4, 2352.36m, 2352.39m, 2333.54m, 2334.26m),
+            CreateCandle(5, 2334.25m, 2334.34m, 2310.01m, 2327.17m),
+            CreateCandle(6, 2327.17m, 2333.85m, 2322.73m, 2324.73m),
+            CreateCandle(7, 2341.82m, 2361.34m, 2338.79m, 2354.29m),
+            CreateCandle(8, 2354.30m, 2373.72m, 2350.76m, 2365.70m),
+            CreateCandle(9, 2372.97m, 2381.88m, 2372.97m, 2378.19m),
+            CreateCandle(10, 2378.19m, 2380.45m, 2369.21m, 2373.30m),
+            CreateCandle(11, 2311.00m, 2316.99m, 2302.51m, 2305.00m)
+        ];
+    }
+
+    /// <summary>
     /// Creates the bullish structure fixture used by lifecycle tests.
     /// </summary>
     /// <returns>Backtest candles that produce one bullish OB/FVG sequence.</returns>
@@ -494,6 +546,56 @@ public class StructureEngineTests
             ExpansionLookbackCandles: 1,
             ExpansionBodyToAverageRange: expansionBodyToAverageRange,
             ExpansionFvgWindowCandles: 2);
+    }
+
+    /// <summary>
+    /// Returns finalized swing events in emitted order.
+    /// </summary>
+    /// <param name="events">Structure events to inspect.</param>
+    /// <returns>Finalized swing events.</returns>
+    private static StructureEvent[] GetFinalizedSwingEvents(IReadOnlyList<StructureEvent> events)
+    {
+        return events
+            .Where(structureEvent => structureEvent.EventType is StructureEventType.SwingHighFinalized or StructureEventType.SwingLowFinalized)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Asserts finalized swing entities do not receive later candidate updates.
+    /// </summary>
+    /// <param name="events">Structure events to inspect.</param>
+    private static void AssertNoCandidateUpdatesAfterFinalization(IReadOnlyList<StructureEvent> events)
+    {
+        var finalizedSwingIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var structureEvent in events.OrderBy(structureEvent => structureEvent.Sequence))
+        {
+            if (structureEvent.EventType is StructureEventType.SwingHighFinalized or StructureEventType.SwingLowFinalized)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(structureEvent.EntityId));
+                finalizedSwingIds.Add(structureEvent.EntityId);
+            }
+
+            if (structureEvent.EventType is StructureEventType.SwingHighCandidateUpdated or StructureEventType.SwingLowCandidateUpdated)
+            {
+                Assert.False(
+                    structureEvent.EntityId is not null && finalizedSwingIds.Contains(structureEvent.EntityId),
+                    $"Finalized swing '{structureEvent.EntityId}' received a candidate update at sequence {structureEvent.Sequence}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asserts finalized swings alternate high/low without same-side finalization repeats.
+    /// </summary>
+    /// <param name="finalizedSwings">Finalized swing events in emitted order.</param>
+    private static void AssertFinalizedSwingsAlternate(IReadOnlyList<StructureEvent> finalizedSwings)
+    {
+        for (var index = 1; index < finalizedSwings.Count; index++)
+        {
+            Assert.NotEqual(
+                finalizedSwings[index - 1].EventType,
+                finalizedSwings[index].EventType);
+        }
     }
 
     /// <summary>

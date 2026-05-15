@@ -356,8 +356,10 @@ internal sealed class StructureEngine
                 return;
             }
 
-            var highBreak = activeHighCandidate is not null && candle.High > activeHighCandidate.Price;
-            var lowBreak = activeLowCandidate is not null && candle.Low < activeLowCandidate.Price;
+            var highBreakAnchor = activeHighCandidate ?? LastFinalizedSwing(SwingKind.High);
+            var lowBreakAnchor = activeLowCandidate ?? LastFinalizedSwing(SwingKind.Low);
+            var highBreak = highBreakAnchor is not null && candle.High > highBreakAnchor.Price;
+            var lowBreak = lowBreakAnchor is not null && candle.Low < lowBreakAnchor.Price;
 
             if (highBreak && lowBreak)
             {
@@ -513,6 +515,23 @@ internal sealed class StructureEngine
         private void HandleHighBreak(int index)
         {
             var candle = candles[index];
+            var previousFinalizedHigh = LastFinalizedSwing(SwingKind.High);
+            if (previousFinalizedHigh is not null && LastFinalizedSwing()?.Kind == SwingKind.High)
+            {
+                if (activeHighCandidate is null)
+                {
+                    activeHighCandidate = CreateSwingCandidate(SwingKind.High, index, candle.High);
+                }
+                else
+                {
+                    UpdateSwingCandidate(activeHighCandidate, index, candle.High);
+                }
+
+                highBetweenLowsCandidate = activeHighCandidate;
+                TryFinalizeLowBetweenHighs(previousFinalizedHigh, activeHighCandidate, index);
+                return;
+            }
+
             if (activeHighCandidate is null)
             {
                 activeHighCandidate = CreateSwingCandidate(SwingKind.High, index, candle.High);
@@ -534,17 +553,37 @@ internal sealed class StructureEngine
                 return;
             }
 
-            FinalizeSwing(activeHighCandidate, index);
-            FinalizeSwing(lowBetweenHighsCandidate, index);
-            activeLowCandidate = lowBetweenHighsCandidate;
+            _ = FinalizeSwing(activeHighCandidate, index);
+            if (FinalizeSwing(lowBetweenHighsCandidate, index))
+            {
+                activeLowCandidate = null;
+                lowBetweenHighsCandidate = null;
+            }
+
             activeHighCandidate = CreateSwingCandidate(SwingKind.High, index, candle.High);
-            lowBetweenHighsCandidate = null;
             highBetweenLowsCandidate = activeHighCandidate;
         }
 
         private void HandleLowBreak(int index)
         {
             var candle = candles[index];
+            var previousFinalizedLow = LastFinalizedSwing(SwingKind.Low);
+            if (previousFinalizedLow is not null && LastFinalizedSwing()?.Kind == SwingKind.Low)
+            {
+                if (activeLowCandidate is null)
+                {
+                    activeLowCandidate = CreateSwingCandidate(SwingKind.Low, index, candle.Low);
+                }
+                else
+                {
+                    UpdateSwingCandidate(activeLowCandidate, index, candle.Low);
+                }
+
+                lowBetweenHighsCandidate = activeLowCandidate;
+                TryFinalizeHighBetweenLows(previousFinalizedLow, activeLowCandidate, index);
+                return;
+            }
+
             if (activeLowCandidate is null)
             {
                 activeLowCandidate = CreateSwingCandidate(SwingKind.Low, index, candle.Low);
@@ -566,17 +605,21 @@ internal sealed class StructureEngine
                 return;
             }
 
-            FinalizeSwing(activeLowCandidate, index);
-            FinalizeSwing(highBetweenLowsCandidate, index);
-            activeHighCandidate = highBetweenLowsCandidate;
+            _ = FinalizeSwing(activeLowCandidate, index);
+            if (FinalizeSwing(highBetweenLowsCandidate, index))
+            {
+                activeHighCandidate = null;
+                highBetweenLowsCandidate = null;
+            }
+
             activeLowCandidate = CreateSwingCandidate(SwingKind.Low, index, candle.Low);
-            highBetweenLowsCandidate = null;
             lowBetweenHighsCandidate = activeLowCandidate;
         }
 
         private void TrackLowBetweenHighs(int index)
         {
-            if (activeHighCandidate is null || index <= activeHighCandidate.Index)
+            var highAnchor = activeHighCandidate ?? LastFinalizedSwing(SwingKind.High);
+            if (highAnchor is null || index <= highAnchor.Index)
             {
                 return;
             }
@@ -594,7 +637,8 @@ internal sealed class StructureEngine
 
         private void TrackHighBetweenLows(int index)
         {
-            if (activeLowCandidate is null || index <= activeLowCandidate.Index)
+            var lowAnchor = activeLowCandidate ?? LastFinalizedSwing(SwingKind.Low);
+            if (lowAnchor is null || index <= lowAnchor.Index)
             {
                 return;
             }
@@ -607,6 +651,42 @@ internal sealed class StructureEngine
             else if (high > highBetweenLowsCandidate.Price)
             {
                 UpdateSwingCandidate(highBetweenLowsCandidate, index, high);
+            }
+        }
+
+        private void TryFinalizeLowBetweenHighs(
+            SwingPoint previousFinalizedHigh,
+            SwingPoint currentHighCandidate,
+            int observedIndex)
+        {
+            if (lowBetweenHighsCandidate is null
+                || !HasMinimumSwingSeparation(previousFinalizedHigh, lowBetweenHighsCandidate, currentHighCandidate.Index))
+            {
+                return;
+            }
+
+            if (FinalizeSwing(lowBetweenHighsCandidate, observedIndex))
+            {
+                activeLowCandidate = null;
+                lowBetweenHighsCandidate = null;
+            }
+        }
+
+        private void TryFinalizeHighBetweenLows(
+            SwingPoint previousFinalizedLow,
+            SwingPoint currentLowCandidate,
+            int observedIndex)
+        {
+            if (highBetweenLowsCandidate is null
+                || !HasMinimumSwingSeparation(previousFinalizedLow, highBetweenLowsCandidate, currentLowCandidate.Index))
+            {
+                return;
+            }
+
+            if (FinalizeSwing(highBetweenLowsCandidate, observedIndex))
+            {
+                activeHighCandidate = null;
+                highBetweenLowsCandidate = null;
             }
         }
 
@@ -646,6 +726,11 @@ internal sealed class StructureEngine
 
         private void UpdateSwingCandidate(SwingPoint swing, int index, decimal price)
         {
+            if (swing.Finalized)
+            {
+                throw new StructureException($"Finalized swing '{swing.Id}' cannot be updated as a candidate.");
+            }
+
             if (swing.Index == index && swing.Price == price)
             {
                 return;
@@ -664,11 +749,11 @@ internal sealed class StructureEngine
                 sourceIndices: [index]);
         }
 
-        private void FinalizeSwing(SwingPoint swing, int observedIndex)
+        private bool FinalizeSwing(SwingPoint swing, int observedIndex)
         {
             if (swing.Finalized)
             {
-                return;
+                return false;
             }
 
             swing.MarkFinalized();
@@ -684,6 +769,7 @@ internal sealed class StructureEngine
                 classificationStage: "finalized",
                 sourceIndices: [swing.Index, observedIndex]);
             AddLiquidityFromFinalSwing(swing, observedIndex);
+            return true;
         }
 
         private void AddLiquidityFromFinalSwing(SwingPoint swing, int observedIndex)
@@ -1053,6 +1139,11 @@ internal sealed class StructureEngine
         private SwingPoint? LastFinalizedSwing(SwingKind kind)
         {
             return finalizedSwings.LastOrDefault(swing => swing.Kind == kind);
+        }
+
+        private SwingPoint? LastFinalizedSwing()
+        {
+            return finalizedSwings.LastOrDefault();
         }
 
         private void TryDiscoverOrderBlock(int index, StructureDirection direction)
