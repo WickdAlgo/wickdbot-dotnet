@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.CommandLine;
+using System.Diagnostics;
 using WickdBot.Backtesting;
 using WickdBot.Data;
 using WickdBot.Engines;
@@ -31,7 +32,72 @@ internal static class Program
     /// <returns>The process exit code.</returns>
     internal static Task<int> Main(string[] args)
     {
-        return BuildRootCommand().Parse(args).InvokeAsync();
+        return InvokeWithTimingAsync(BuildRootCommand(), args);
+    }
+
+    /// <summary>
+    /// Invokes a root command and writes elapsed-time feedback after it completes.
+    /// </summary>
+    /// <param name="command">Root command to invoke.</param>
+    /// <param name="args">Command-line arguments supplied by the caller.</param>
+    /// <returns>The process exit code.</returns>
+    internal static async Task<int> InvokeWithTimingAsync(RootCommand command, string[] args)
+    {
+        return await InvokeWithTimingAsync(() => command.Parse(args).InvokeAsync());
+    }
+
+    /// <summary>
+    /// Invokes a command delegate and writes elapsed-time feedback after it completes.
+    /// </summary>
+    /// <param name="invoke">Command invocation delegate.</param>
+    /// <returns>The process exit code.</returns>
+    internal static async Task<int> InvokeWithTimingAsync(Func<Task<int>> invoke)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        int? exitCode = null;
+
+        try
+        {
+            exitCode = await invoke();
+
+            return exitCode.Value;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            WriteTimingResult(stopwatch.Elapsed, exitCode);
+        }
+    }
+
+    /// <summary>
+    /// Formats an elapsed command duration for terminal output.
+    /// </summary>
+    /// <param name="elapsed">Elapsed command duration.</param>
+    /// <returns>Human-readable elapsed duration.</returns>
+    internal static string FormatElapsedDuration(TimeSpan elapsed)
+    {
+        var roundedMilliseconds = (long)Math.Round(elapsed.TotalMilliseconds, MidpointRounding.AwayFromZero);
+        if (roundedMilliseconds < 1000)
+        {
+            return FormattableString.Invariant($"{roundedMilliseconds} ms");
+        }
+
+        var roundedSeconds = Math.Round(elapsed.TotalSeconds, 2, MidpointRounding.AwayFromZero);
+        if (roundedSeconds < 60)
+        {
+            return FormattableString.Invariant($"{roundedSeconds:0.00} s");
+        }
+
+        var wholeSeconds = (long)Math.Round(elapsed.TotalSeconds, MidpointRounding.AwayFromZero);
+        var hours = wholeSeconds / 3600;
+        var minutes = wholeSeconds % 3600 / 60;
+        var seconds = wholeSeconds % 60;
+        if (hours > 0)
+        {
+            return FormattableString.Invariant($"{hours} h {minutes:00} min {seconds:00} s");
+        }
+
+        return FormattableString.Invariant($"{minutes} min {seconds:00} s");
     }
 
     /// <summary>
@@ -494,6 +560,20 @@ internal static class Program
     private static bool IsSpecified(ParseResult parseResult, Option option)
     {
         return parseResult.GetResult(option) is not null;
+    }
+
+    /// <summary>
+    /// Writes the standard elapsed-time command footer.
+    /// </summary>
+    /// <param name="elapsed">Elapsed command duration.</param>
+    /// <param name="exitCode">Command exit code.</param>
+    private static void WriteTimingResult(TimeSpan elapsed, int? exitCode)
+    {
+        var exitCodeText = exitCode.HasValue
+            ? $"exit code {exitCode.Value}"
+            : "exit code unavailable";
+
+        Console.Error.WriteLine($"Finished in {FormatElapsedDuration(elapsed)} ({exitCodeText}).");
     }
 
     /// <summary>
