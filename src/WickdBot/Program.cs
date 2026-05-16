@@ -43,13 +43,30 @@ internal static class Program
     /// <returns>The process exit code.</returns>
     internal static async Task<int> InvokeWithTimingAsync(RootCommand command, string[] args)
     {
+        return await InvokeWithTimingAsync(() => command.Parse(args).InvokeAsync());
+    }
+
+    /// <summary>
+    /// Invokes a command delegate and writes elapsed-time feedback after it completes.
+    /// </summary>
+    /// <param name="invoke">Command invocation delegate.</param>
+    /// <returns>The process exit code.</returns>
+    internal static async Task<int> InvokeWithTimingAsync(Func<Task<int>> invoke)
+    {
         var stopwatch = Stopwatch.StartNew();
-        var exitCode = await command.Parse(args).InvokeAsync();
-        stopwatch.Stop();
+        int? exitCode = null;
 
-        WriteTimingResult(stopwatch.Elapsed, exitCode);
+        try
+        {
+            exitCode = await invoke();
 
-        return exitCode;
+            return exitCode.Value;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            WriteTimingResult(stopwatch.Elapsed, exitCode);
+        }
     }
 
     /// <summary>
@@ -545,10 +562,13 @@ internal static class Program
     /// </summary>
     /// <param name="elapsed">Elapsed command duration.</param>
     /// <param name="exitCode">Command exit code.</param>
-    private static void WriteTimingResult(TimeSpan elapsed, int exitCode)
+    private static void WriteTimingResult(TimeSpan elapsed, int? exitCode)
     {
-        Console.Error.WriteLine(
-            $"Finished in {FormatElapsedDuration(elapsed)} (exit code {exitCode}).");
+        var exitCodeText = exitCode.HasValue
+            ? $"exit code {exitCode.Value}"
+            : "exit code unavailable";
+
+        Console.Error.WriteLine($"Finished in {FormatElapsedDuration(elapsed)} ({exitCodeText}).");
     }
 
     /// <summary>

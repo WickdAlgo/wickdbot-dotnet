@@ -66,6 +66,18 @@ public class CommandLineTimingTests
     }
 
     /// <summary>
+    /// Confirms unhandled command exceptions still write elapsed timing before bubbling.
+    /// </summary>
+    [Fact]
+    public async Task UnhandledExceptionWritesTimingBeforeBubbling()
+    {
+        var error = await CaptureErrorFromThrowingCommandAsync(
+            () => Task.FromException<int>(new InvalidOperationException("boom")));
+
+        Assert.Matches(CreateUnavailableExitCodeTimingPattern(), error);
+    }
+
+    /// <summary>
     /// Confirms elapsed durations are formatted at the expected display precision.
     /// </summary>
     /// <param name="milliseconds">Elapsed milliseconds to format.</param>
@@ -89,6 +101,49 @@ public class CommandLineTimingTests
     private static string CreateTimingPattern(int exitCode)
     {
         return $@"Finished in (?:\d+ ms|\d+\.\d{{2}} s|\d+ min \d{{2}} s) \(exit code {exitCode}\)\.";
+    }
+
+    /// <summary>
+    /// Creates a regex that matches the command timing footer when no exit code is available.
+    /// </summary>
+    /// <returns>Regex pattern for an exceptional timing footer.</returns>
+    private static string CreateUnavailableExitCodeTimingPattern()
+    {
+        return @"Finished in (?:\d+ ms|\d+\.\d{2} s|\d+ min \d{2} s) \(exit code unavailable\)\.";
+    }
+
+    /// <summary>
+    /// Captures standard error while asserting a command invocation throws.
+    /// </summary>
+    /// <param name="command">Root command to invoke.</param>
+    /// <param name="args">Command-line arguments to invoke.</param>
+    /// <returns>Captured standard error text.</returns>
+    private static async Task<string> CaptureErrorFromThrowingCommandAsync(Func<Task<int>> invoke)
+    {
+        var originalOutput = Console.Out;
+        var originalError = Console.Error;
+
+        await ConsoleRedirectionLock.SyncRoot.WaitAsync();
+        try
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+
+            Console.SetOut(output);
+            Console.SetError(error);
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => Program.InvokeWithTimingAsync(invoke));
+            Assert.Equal("boom", exception.Message);
+
+            return error.ToString();
+        }
+        finally
+        {
+            Console.SetOut(originalOutput);
+            Console.SetError(originalError);
+            ConsoleRedirectionLock.SyncRoot.Release();
+        }
     }
 
     /// <summary>
