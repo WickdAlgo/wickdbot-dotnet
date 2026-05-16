@@ -1,0 +1,4 @@
+interface:
+  display_name: "WickdBot Commit Message"
+  short_description: "Generate WickdBot commit messages"
+  default_prompt: "Use $wickdbot-commit-message to draft a Conventional Commit message for the current WickdBot changes."
