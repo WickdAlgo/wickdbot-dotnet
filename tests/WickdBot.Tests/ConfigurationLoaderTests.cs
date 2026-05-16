@@ -21,8 +21,66 @@ public class ConfigurationLoaderTests
 
         Assert.Equal("BTC_USDT_PERP", settings.DefaultMarketId);
         Assert.Equal("5m", settings.DefaultTimeframe.Value);
+        Assert.Equal(2, settings.Structure.MinimumSwingSeparationCandles);
+        Assert.Equal(1.5m, settings.Structure.ExpansionBodyToAverageRange);
         Assert.Equal("binance", market.ExchangeId);
         Assert.Equal("BTC/USDT:USDT", market.ExchangeSymbol);
+    }
+
+    /// <summary>
+    /// Confirms local appsettings overrides replace committed defaults without rewriting appsettings.json.
+    /// </summary>
+    [Fact]
+    public void LoadAppliesLocalStructureOverride()
+    {
+        using var directory = new TemporaryDirectory();
+        var appSettingsPath = WriteConfiguration(directory, ValidMarketsJson);
+        directory.WriteFile(
+            "appsettings.Local.json",
+            """
+            {
+              "WickdBot": {
+                "Structure": {
+                  "MinimumSwingSeparationCandles": 4,
+                  "ExpansionBodyToAverageRange": 2.25
+                }
+              }
+            }
+            """);
+
+        var settings = WickdBotConfigurationLoader.Load(appSettingsPath);
+
+        Assert.Equal(4, settings.Structure.MinimumSwingSeparationCandles);
+        Assert.Equal(5m, settings.Structure.EqualLevelToleranceBasisPoints);
+        Assert.Equal(2.25m, settings.Structure.ExpansionBodyToAverageRange);
+    }
+
+    /// <summary>
+    /// Confirms invalid structure settings fail as configuration errors.
+    /// </summary>
+    [Fact]
+    public void LoadRejectsInvalidStructureSettings()
+    {
+        using var directory = new TemporaryDirectory();
+        var appSettingsPath = WriteConfiguration(
+            directory,
+            ValidMarketsJson,
+            structureJson:
+            """
+                "Structure": {
+                  "MinimumSwingSeparationCandles": 0,
+                  "EqualLevelToleranceBasisPoints": 5,
+                  "OrderBlockSearchBackCandles": 3,
+                  "ExpansionLookbackCandles": 20,
+                  "ExpansionBodyToAverageRange": 1.5,
+                  "ExpansionFvgWindowCandles": 2
+                }
+            """);
+
+        var exception = Assert.Throws<WickdBotConfigurationException>(() => WickdBotConfigurationLoader.Load(appSettingsPath));
+
+        Assert.Contains("WickdBot.Structure.MinimumSwingSeparationCandles", exception.Message);
+        Assert.Contains("at least 1", exception.Message);
     }
 
     /// <summary>
@@ -176,9 +234,22 @@ public class ConfigurationLoaderTests
         TemporaryDirectory directory,
         string marketsJson,
         string defaultMarket = "BTC_USDT_PERP",
-        string timeframe = "5m")
+        string timeframe = "5m",
+        string? structureJson = null)
     {
         directory.WriteFile("markets.json", marketsJson);
+        structureJson ??=
+            """
+                "Structure": {
+                  "MinimumSwingSeparationCandles": 2,
+                  "EqualLevelToleranceBasisPoints": 5,
+                  "OrderBlockSearchBackCandles": 3,
+                  "ExpansionLookbackCandles": 20,
+                  "ExpansionBodyToAverageRange": 1.5,
+                  "ExpansionFvgWindowCandles": 2
+                }
+            """;
+
         return directory.WriteFile(
             "appsettings.json",
             $$"""
@@ -192,7 +263,8 @@ public class ConfigurationLoaderTests
                 "Storage": {
                   "CacheRoot": "data/cache",
                   "RunsRoot": "runs"
-                }
+                },
+            {{structureJson}}
               }
             }
             """);

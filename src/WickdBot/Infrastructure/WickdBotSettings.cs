@@ -10,6 +10,7 @@ namespace WickdBot.Infrastructure;
 /// <param name="MarketsFilePath">Resolved markets.json path.</param>
 /// <param name="CacheRoot">Root folder for reusable candle cache files.</param>
 /// <param name="RunsRoot">Root folder for run-specific outputs.</param>
+/// <param name="Structure">Validated market-structure detection parameters.</param>
 /// <param name="Markets">Validated market definitions keyed by canonical market ID.</param>
 internal sealed record WickdBotSettings(
     string DefaultMarketId,
@@ -17,6 +18,7 @@ internal sealed record WickdBotSettings(
     string MarketsFilePath,
     string CacheRoot,
     string RunsRoot,
+    StructureSettings Structure,
     IReadOnlyDictionary<string, MarketDefinition> Markets)
 {
     /// <summary>

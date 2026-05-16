@@ -8,6 +8,7 @@
 - `src/WickdBot/` contains the .NET 8 CLI app, configuration files, and future module folders.
 - `tests/WickdBot.Tests/` contains xUnit tests.
 - `.agents/skills/wickdbot-dotnet-engineering/` contains repository-specific engineering guidance for agent work.
+- `.agents/skills/wickdbot-commit-message/` contains the repository commit message convention for agent-generated commit subjects and bodies.
 
 Expected module folders under `src/WickdBot/` include `Models/`, `Data/`, `Engines/`, `Backtesting/`, `Analysis/`, and `Infrastructure/`.
 
@@ -64,7 +65,28 @@ dotnet test WickdBot.slnx
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use concise imperative messages such as `Add CLI command skeleton` and `Move assembly metadata into project file`. Follow that style: start with a verb, keep the subject specific, and avoid bundling unrelated changes.
+Use Conventional Commits for new commit messages so Codex, Copilot, and humans all produce the same shape:
+
+```text
+<type>(<scope>): <imperative summary>
+```
+
+- Keep the subject line lower-case after the type, imperative, specific, under 72 characters, and without a trailing period.
+- Prefer a scope for non-trivial changes. Common scopes are `cli`, `config`, `data`, `structures`, `backtest`, `analysis`, `docs`, `docfx`, `tests`, `ci`, and `skills`.
+- Use these types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, and `revert`.
+- Add a blank line and a short bullet body only when the commit spans multiple important changes or needs context.
+- Mark breaking changes with `!` after the scope or type and include a `BREAKING CHANGE:` footer.
+- Do not use vague subjects such as `update stuff`, duplicate phrasing such as `fix: fix ...`, or bundle unrelated work.
+
+Examples:
+
+```text
+feat(structures): journal staged liquidity lifecycle
+fix(config): load local appsettings overrides safely
+docs(docfx): document local API site workflow
+test(structures): cover candidate-to-breakout transitions
+chore(skills): add backtest review analyzer skill
+```
 
 Pull requests should include a short summary, validation commands run, and links to relevant plan or phase documents. Include screenshots only for UI or chart fixture changes.
 

@@ -41,7 +41,23 @@ internal static class TestSettingsFactory
             "markets.json",
             cacheRoot,
             Path.Combine(cacheRoot, "runs"),
+            CreateStructureSettings(),
             configuredMarkets.ToDictionary(market => market.MarketId, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Creates default structure settings tuned for compact deterministic tests.
+    /// </summary>
+    /// <returns>Validated structure settings.</returns>
+    internal static StructureSettings CreateStructureSettings()
+    {
+        return new StructureSettings(
+            MinimumSwingSeparationCandles: 1,
+            EqualLevelToleranceBasisPoints: 5m,
+            OrderBlockSearchBackCandles: 3,
+            ExpansionLookbackCandles: 2,
+            ExpansionBodyToAverageRange: 1.5m,
+            ExpansionFvgWindowCandles: 2);
     }
 
     /// <summary>

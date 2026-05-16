@@ -176,7 +176,9 @@ Every journal record carries `runId`, `marketId`, and `timeframe`.
 - Sell stops can include long-position stops and breakout-sell orders.
 - EQH/EQL detection uses configurable basis-point tolerance.
 - Actual distance between equal levels is journaled.
-- Swing detection uses a simple configurable symmetric fractal window in the MVP.
+- Swing detection uses an alternating candidate/final swing model in the MVP.
+- `MinimumSwingSeparationCandles` filters one-candle flip noise before finalized swings create liquidity.
+- Finalized swings are immutable anchors; later candidate updates must create or update unresolved candidates only.
 - Adaptive/volatility-based swing logic is future work.
 
 ## Structure Rules
@@ -468,6 +470,7 @@ More golden samples should be added as strategy validation grows.
 - No CSV import/export.
 - No Parquet in MVP.
 - No adaptive swing model.
+- No symmetric fractal swing model.
 - No liquidity-target TP.
 - No setup invalidation when target liquidity is taken before entry.
 

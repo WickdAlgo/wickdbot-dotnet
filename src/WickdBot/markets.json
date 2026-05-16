@@ -6,6 +6,36 @@
       "ExchangeSymbol": "BTC/USDT:USDT"
     },
     {
+      "MarketId": "ETH_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "ETH/USDT:USDT"
+    },
+    {
+      "MarketId": "SUI_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "SUI/USDT:USDT"
+    },
+    {
+      "MarketId": "XRP_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "XRP/USDT:USDT"
+    },
+    {
+      "MarketId": "HYPE_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "HYPE/USDT:USDT"
+    },
+    {
+      "MarketId": "AVAX_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "AVAX/USDT:USDT"
+    },
+    {
+      "MarketId": "EIGEN_USDT_PERP",
+      "ExchangeId": "binance",
+      "ExchangeSymbol": "EIGEN/USDT:USDT"
+    },
+    {
       "MarketId": "BTC_USDC_PERP",
       "ExchangeId": "hyperliquid",
       "ExchangeSymbol": "BTC/USDC:USDC"
