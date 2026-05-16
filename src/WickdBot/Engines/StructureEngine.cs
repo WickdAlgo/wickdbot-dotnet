@@ -321,8 +321,13 @@ internal sealed class StructureEngine
         private readonly List<LiquidityBreach> liquidityBreaches = [];
         private readonly List<OrderBlockInfo> orderBlocks = [];
         private readonly List<FvgInfo> fvgs = [];
+        private readonly List<LiquidityLevel> unclassifiedLiquidityLevels = [];
+        private readonly List<LiquidityBreach> openLiquidityBreaches = [];
+        private readonly List<OrderBlockInfo> activeOrderBlocks = [];
+        private readonly List<FvgInfo> activeFvgs = [];
         private readonly HashSet<string> discoveredOrderBlocks = new(StringComparer.Ordinal);
         private readonly HashSet<string> discoveredFvgs = new(StringComparer.Ordinal);
+        private readonly decimal[] candleRangePrefixSums;
         private int eventSequence;
         private int swingSequence;
         private int liquiditySequence;
@@ -342,6 +347,7 @@ internal sealed class StructureEngine
             this.candles = candles;
             this.settings = settings;
             this.identity = identity;
+            candleRangePrefixSums = BuildCandleRangePrefixSums(candles);
         }
 
         internal IReadOnlyList<StructureEvent> Events => events;
@@ -403,16 +409,19 @@ internal sealed class StructureEngine
         internal void UpdateFvgFills(int index)
         {
             var candle = candles[index];
-            foreach (var fvg in fvgs)
+            for (var position = 0; position < activeFvgs.Count;)
             {
-                if (fvg.Filled || fvg.DiscoveryIndex >= index)
+                var fvg = activeFvgs[position];
+                if (fvg.DiscoveryIndex >= index)
                 {
+                    position++;
                     continue;
                 }
 
                 var fillPercent = CalculateFillPercent(fvg, candle);
                 if (fillPercent <= fvg.FillPercent)
                 {
+                    position++;
                     continue;
                 }
 
@@ -430,21 +439,32 @@ internal sealed class StructureEngine
                     fillPercent: fillPercent,
                     fvgState: fvg.Filled ? FvgState.Filled : FvgState.Active,
                     sourceIndices: [index]);
+
+                if (fvg.Filled)
+                {
+                    activeFvgs.RemoveAt(position);
+                    continue;
+                }
+
+                position++;
             }
         }
 
         internal void UpdateOrderBlockLifecycle(int index)
         {
             var candle = candles[index];
-            foreach (var orderBlock in orderBlocks)
+            for (var position = 0; position < activeOrderBlocks.Count;)
             {
-                if (orderBlock.Consumed || orderBlock.DiscoveryIndex >= index)
+                var orderBlock = activeOrderBlocks[position];
+                if (orderBlock.DiscoveryIndex >= index)
                 {
+                    position++;
                     continue;
                 }
 
                 if (!IntersectsZone(candle, orderBlock.ZoneLow, orderBlock.ZoneHigh))
                 {
+                    position++;
                     continue;
                 }
 
@@ -469,6 +489,8 @@ internal sealed class StructureEngine
                     orderBlockState: OrderBlockState.Consumed,
                     sourceIndices: [index]);
                 orderBlock.Consumed = true;
+                activeOrderBlocks.RemoveAt(position);
+                continue;
             }
         }
 
@@ -502,12 +524,10 @@ internal sealed class StructureEngine
                 identity.MarketId,
                 identity.ExchangeId,
                 identity.Timeframe,
-                orderBlocks
-                    .Where(orderBlock => !orderBlock.Consumed)
+                activeOrderBlocks
                     .Select(orderBlock => orderBlock.Id)
                     .ToArray(),
-                fvgs
-                    .Where(fvg => !fvg.Filled)
+                activeFvgs
                     .Select(fvg => fvg.Id)
                     .ToArray());
         }
@@ -774,7 +794,7 @@ internal sealed class StructureEngine
 
         private void AddLiquidityFromFinalSwing(SwingPoint swing, int observedIndex)
         {
-            liquidityLevels.Add(new LiquidityLevel(
+            AddLiquidityLevel(new LiquidityLevel(
                 swing.Id,
                 swing.Kind == SwingKind.High ? LiquiditySide.BuySide : LiquiditySide.SellSide,
                 observedIndex,
@@ -786,9 +806,7 @@ internal sealed class StructureEngine
 
         private void TryEmitEqualLiquidity(SwingPoint current, int observedIndex)
         {
-            var previous = finalizedSwings
-                .Where(swing => swing.Kind == current.Kind && swing.Id != current.Id)
-                .LastOrDefault();
+            var previous = PreviousFinalizedSwing(current);
             if (previous is null)
             {
                 return;
@@ -820,7 +838,7 @@ internal sealed class StructureEngine
                 classificationStage: "liquidityFinalized",
                 sourceIndices: [previous.Index, current.Index]);
 
-            liquidityLevels.Add(new LiquidityLevel(
+            AddLiquidityLevel(new LiquidityLevel(
                 id,
                 current.Kind == SwingKind.High ? LiquiditySide.BuySide : LiquiditySide.SellSide,
                 observedIndex,
@@ -829,24 +847,38 @@ internal sealed class StructureEngine
                 [previous.Id, current.Id]));
         }
 
+        private void AddLiquidityLevel(LiquidityLevel level)
+        {
+            liquidityLevels.Add(level);
+            unclassifiedLiquidityLevels.Add(level);
+        }
+
         private void EmitLiquidityBreaches(int index)
         {
             var candle = candles[index];
-            foreach (var level in liquidityLevels)
+            for (var position = 0; position < unclassifiedLiquidityLevels.Count;)
             {
-                if (level.Classified || level.ObservedIndex > index)
+                var level = unclassifiedLiquidityLevels[position];
+                if (level.ObservedIndex > index)
                 {
+                    position++;
                     continue;
                 }
 
                 if (level.Side == LiquiditySide.BuySide && candle.High > level.ZoneHigh)
                 {
                     EmitLiquidityBreach(level, index);
+                    unclassifiedLiquidityLevels.RemoveAt(position);
+                    continue;
                 }
                 else if (level.Side == LiquiditySide.SellSide && candle.Low < level.ZoneLow)
                 {
                     EmitLiquidityBreach(level, index);
+                    unclassifiedLiquidityLevels.RemoveAt(position);
+                    continue;
                 }
+
+                position++;
             }
         }
 
@@ -879,40 +911,48 @@ internal sealed class StructureEngine
                 classificationStage: "breached",
                 sourceIndices: [index]);
 
-            liquidityBreaches.Add(new LiquidityBreach(
+            var breach = new LiquidityBreach(
                 id,
                 breachEvent.EventId,
                 level,
                 index,
                 protectedSwing?.Id,
-                protectedSwing?.Price));
+                protectedSwing?.Price);
+            liquidityBreaches.Add(breach);
+            openLiquidityBreaches.Add(breach);
         }
 
         private void UpdateOpenLiquidityBreaches(int index)
         {
-            foreach (var breach in liquidityBreaches)
+            for (var position = 0; position < openLiquidityBreaches.Count;)
             {
+                var breach = openLiquidityBreaches[position];
                 if (breach.IsTerminal)
                 {
+                    openLiquidityBreaches.RemoveAt(position);
                     continue;
                 }
 
                 if (TryConfirmSweep(breach, index))
                 {
+                    openLiquidityBreaches.RemoveAt(position);
                     continue;
                 }
 
                 if (TryConfirmBreakout(breach, index))
                 {
+                    openLiquidityBreaches.RemoveAt(position);
                     continue;
                 }
 
                 if (TryConfirmSweepCandidate(breach, index))
                 {
+                    position++;
                     continue;
                 }
 
                 _ = TryConfirmRejection(breach, index);
+                position++;
             }
         }
 
@@ -1095,12 +1135,7 @@ internal sealed class StructureEngine
                 return false;
             }
 
-            var startIndex = index - settings.ExpansionLookbackCandles;
-            var averageRange = candles
-                .Skip(startIndex)
-                .Take(settings.ExpansionLookbackCandles)
-                .Average(candle => candle.High - candle.Low);
-            if (averageRange <= 0m)
+            if (!TryGetAveragePriorRange(index, out var averageRange))
             {
                 return false;
             }
@@ -1138,7 +1173,16 @@ internal sealed class StructureEngine
 
         private SwingPoint? LastFinalizedSwing(SwingKind kind)
         {
-            return finalizedSwings.LastOrDefault(swing => swing.Kind == kind);
+            for (var index = finalizedSwings.Count - 1; index >= 0; index--)
+            {
+                var swing = finalizedSwings[index];
+                if (swing.Kind == kind)
+                {
+                    return swing;
+                }
+            }
+
+            return null;
         }
 
         private SwingPoint? LastFinalizedSwing()
@@ -1174,6 +1218,7 @@ internal sealed class StructureEngine
                 candidate.High);
 
             orderBlocks.Add(orderBlock);
+            activeOrderBlocks.Add(orderBlock);
             Emit(
                 eventType,
                 observedIndex: index,
@@ -1268,26 +1313,39 @@ internal sealed class StructureEngine
                 fvgState: FvgState.Active,
                 sourceIndices: [middleIndex - 1, middleIndex, middleIndex + 1]);
 
-            fvgs.Add(new FvgInfo(
+            var fvg = new FvgInfo(
                 fvgId,
                 orderBlock.Id,
                 direction,
                 middleIndex,
                 observedIndex,
                 zoneLow,
-                zoneHigh));
+                zoneHigh);
+            fvgs.Add(fvg);
+            activeFvgs.Add(fvg);
         }
 
         private OrderBlockInfo? FindOrderBlockForExpansion(int middleIndex, StructureDirection direction)
         {
-            return orderBlocks
-                .Where(orderBlock => orderBlock.Direction == direction
-                    && !orderBlock.Consumed
-                    && middleIndex > orderBlock.SubjectIndex
-                    && middleIndex - orderBlock.SubjectIndex <= settings.ExpansionFvgWindowCandles
-                    && ClosesBeyondOrderBlock(candles[middleIndex], orderBlock))
-                .OrderByDescending(orderBlock => orderBlock.SubjectIndex)
-                .FirstOrDefault();
+            OrderBlockInfo? bestMatch = null;
+            var candle = candles[middleIndex];
+            foreach (var orderBlock in activeOrderBlocks)
+            {
+                if (orderBlock.Direction != direction
+                    || middleIndex <= orderBlock.SubjectIndex
+                    || middleIndex - orderBlock.SubjectIndex > settings.ExpansionFvgWindowCandles
+                    || !ClosesBeyondOrderBlock(candle, orderBlock))
+                {
+                    continue;
+                }
+
+                if (bestMatch is null || orderBlock.SubjectIndex > bestMatch.SubjectIndex)
+                {
+                    bestMatch = orderBlock;
+                }
+            }
+
+            return bestMatch;
         }
 
         private static bool ClosesBeyondOrderBlock(CandleEvent candle, OrderBlockInfo orderBlock)
@@ -1299,23 +1357,53 @@ internal sealed class StructureEngine
 
         private bool IsExpansionCandle(int middleIndex)
         {
-            var startIndex = middleIndex - settings.ExpansionLookbackCandles;
-            if (startIndex < 0)
-            {
-                return false;
-            }
-
-            var averageRange = candles
-                .Skip(startIndex)
-                .Take(settings.ExpansionLookbackCandles)
-                .Average(candle => candle.High - candle.Low);
-            if (averageRange <= 0m)
+            if (!TryGetAveragePriorRange(middleIndex, out var averageRange))
             {
                 return false;
             }
 
             var body = Math.Abs(candles[middleIndex].Close - candles[middleIndex].Open);
             return body >= averageRange * settings.ExpansionBodyToAverageRange;
+        }
+
+        private bool TryGetAveragePriorRange(int index, out decimal averageRange)
+        {
+            averageRange = 0m;
+            var lookback = settings.ExpansionLookbackCandles;
+            if (index < lookback)
+            {
+                return false;
+            }
+
+            var startIndex = index - lookback;
+            var rangeSum = candleRangePrefixSums[index] - candleRangePrefixSums[startIndex];
+            averageRange = rangeSum / lookback;
+            return averageRange > 0m;
+        }
+
+        private SwingPoint? PreviousFinalizedSwing(SwingPoint current)
+        {
+            for (var index = finalizedSwings.Count - 1; index >= 0; index--)
+            {
+                var swing = finalizedSwings[index];
+                if (swing.Kind == current.Kind && swing.Id != current.Id)
+                {
+                    return swing;
+                }
+            }
+
+            return null;
+        }
+
+        private static decimal[] BuildCandleRangePrefixSums(IReadOnlyList<CandleEvent> candles)
+        {
+            var prefixSums = new decimal[candles.Count + 1];
+            for (var index = 0; index < candles.Count; index++)
+            {
+                prefixSums[index + 1] = prefixSums[index] + candles[index].High - candles[index].Low;
+            }
+
+            return prefixSums;
         }
 
         private bool TryGetFvgZone(

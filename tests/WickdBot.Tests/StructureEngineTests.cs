@@ -355,10 +355,14 @@ public class StructureEngineTests
                 CreateCandle(0, 10m, 10m, 5m, 10m),
                 CreateCandle(1, 12m, 15m, 9m, 12m),
                 CreateCandle(2, 10m, 14m, 7m, 10m),
-                CreateCandle(3, 15m, 16m, 10m, 15.5m)
+                CreateCandle(3, 15m, 16m, 10m, 15.5m),
+                CreateCandle(4, 15.5m, 17m, 12m, 14m)
             ],
             CreateSettings());
 
+        Assert.Single(
+            result.Events,
+            structureEvent => structureEvent.EventType == StructureEventType.BuySideLiquidityBreached);
         var breakout = Assert.Single(
             result.Events,
             structureEvent => structureEvent.EventType == StructureEventType.BuySideBreakoutConfirmed);
@@ -456,6 +460,34 @@ public class StructureEngineTests
     }
 
     /// <summary>
+    /// Confirms expansion and rejection checks use the configured prior-candle range window.
+    /// </summary>
+    [Fact]
+    public void ProcessUsesConfiguredPriorRangeWindowForExpansionAndRejection()
+    {
+        var expansion = new StructureEngine().Process(
+            [
+                CreateCandle(0, 100m, 100.5m, 99.5m, 100m),
+                CreateCandle(1, 100m, 101m, 99m, 99m),
+                CreateCandle(2, 100m, 105m, 99m, 104m),
+                CreateCandle(3, 104m, 106m, 102m, 105m)
+            ],
+            CreateSettings(expansionLookbackCandles: 2, expansionBodyToAverageRange: 2.5m));
+        var rejection = new StructureEngine().Process(
+            [
+                CreateCandle(0, 10m, 10m, 5m, 10m),
+                CreateCandle(1, 12m, 15m, 9m, 12m),
+                CreateCandle(2, 10m, 14m, 7m, 10m),
+                CreateCandle(3, 14m, 16m, 10m, 14m),
+                CreateCandle(4, 18m, 18.5m, 7.5m, 8m)
+            ],
+            CreateSettings(expansionLookbackCandles: 2, expansionBodyToAverageRange: 1.5m));
+
+        Assert.Contains(expansion.Events, structureEvent => structureEvent.EventType == StructureEventType.BullishExpansion);
+        Assert.Contains(rejection.Events, structureEvent => structureEvent.EventType == StructureEventType.BuySideRejectionConfirmed);
+    }
+
+    /// <summary>
     /// Confirms event sequences and IDs are stable for the same candle input.
     /// </summary>
     [Fact]
@@ -523,7 +555,8 @@ public class StructureEngineTests
             CreateCandle(2, 100m, 109m, 99m, 108m),
             CreateCandle(3, 106m, 110m, 102m, 107m),
             CreateCandle(4, 107m, 108m, 101.5m, 106m),
-            CreateCandle(5, 106m, 107m, 100.5m, 105m)
+            CreateCandle(5, 106m, 107m, 100.5m, 105m),
+            CreateCandle(6, 105m, 107m, 100.5m, 104m)
         ];
     }
 
@@ -532,18 +565,20 @@ public class StructureEngineTests
     /// </summary>
     /// <param name="minimumSwingSeparationCandles">Minimum candle distance for swing finalization.</param>
     /// <param name="equalLevelToleranceBasisPoints">Equal-level tolerance override.</param>
+    /// <param name="expansionLookbackCandles">Prior candle count for expansion range averages.</param>
     /// <param name="expansionBodyToAverageRange">Expansion body threshold override.</param>
     /// <returns>Validated structure settings.</returns>
     private static StructureSettings CreateSettings(
         int minimumSwingSeparationCandles = 1,
         decimal equalLevelToleranceBasisPoints = 5m,
+        int expansionLookbackCandles = 1,
         decimal expansionBodyToAverageRange = 1.5m)
     {
         return new StructureSettings(
             MinimumSwingSeparationCandles: minimumSwingSeparationCandles,
             EqualLevelToleranceBasisPoints: equalLevelToleranceBasisPoints,
             OrderBlockSearchBackCandles: 3,
-            ExpansionLookbackCandles: 1,
+            ExpansionLookbackCandles: expansionLookbackCandles,
             ExpansionBodyToAverageRange: expansionBodyToAverageRange,
             ExpansionFvgWindowCandles: 2);
     }
