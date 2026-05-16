@@ -25,7 +25,7 @@ internal static class CommandLineTestRunner
     /// <returns>Captured command result.</returns>
     internal static async Task<ConsoleCommandResult> InvokeCommandAsync(RootCommand command, string[] args)
     {
-        return await CaptureAsync(() => command.Parse(args).InvokeAsync());
+        return await CaptureAsync(() => Program.InvokeWithTimingAsync(command, args));
     }
 
     /// <summary>
