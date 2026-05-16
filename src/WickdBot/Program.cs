@@ -76,21 +76,26 @@ internal static class Program
     /// <returns>Human-readable elapsed duration.</returns>
     internal static string FormatElapsedDuration(TimeSpan elapsed)
     {
-        if (elapsed < TimeSpan.FromSeconds(1))
+        var roundedMilliseconds = (long)Math.Round(elapsed.TotalMilliseconds, MidpointRounding.AwayFromZero);
+        if (roundedMilliseconds < 1000)
         {
-            var wholeMilliseconds = (long)Math.Round(elapsed.TotalMilliseconds, MidpointRounding.AwayFromZero);
-
-            return FormattableString.Invariant($"{wholeMilliseconds} ms");
+            return FormattableString.Invariant($"{roundedMilliseconds} ms");
         }
 
-        if (elapsed < TimeSpan.FromMinutes(1))
+        var roundedSeconds = Math.Round(elapsed.TotalSeconds, 2, MidpointRounding.AwayFromZero);
+        if (roundedSeconds < 60)
         {
-            return FormattableString.Invariant($"{elapsed.TotalSeconds:0.00} s");
+            return FormattableString.Invariant($"{roundedSeconds:0.00} s");
         }
 
         var wholeSeconds = (long)Math.Round(elapsed.TotalSeconds, MidpointRounding.AwayFromZero);
-        var minutes = wholeSeconds / 60;
+        var hours = wholeSeconds / 3600;
+        var minutes = wholeSeconds % 3600 / 60;
         var seconds = wholeSeconds % 60;
+        if (hours > 0)
+        {
+            return FormattableString.Invariant($"{hours} h {minutes:00} min {seconds:00} s");
+        }
 
         return FormattableString.Invariant($"{minutes} min {seconds:00} s");
     }

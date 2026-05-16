@@ -84,9 +84,13 @@ public class CommandLineTimingTests
     /// <param name="expected">Expected duration text.</param>
     [Theory]
     [InlineData(83, "83 ms")]
+    [InlineData(999, "999 ms")]
+    [InlineData(999.6, "1.00 s")]
     [InlineData(1234, "1.23 s")]
+    [InlineData(59996, "1 min 00 s")]
     [InlineData(75200, "1 min 15 s")]
-    public void FormatElapsedDurationUsesExpectedPrecision(int milliseconds, string expected)
+    [InlineData(7530000, "2 h 05 min 30 s")]
+    public void FormatElapsedDurationUsesExpectedPrecision(double milliseconds, string expected)
     {
         var formatted = Program.FormatElapsedDuration(TimeSpan.FromMilliseconds(milliseconds));
 
@@ -100,7 +104,7 @@ public class CommandLineTimingTests
     /// <returns>Regex pattern for the timing footer.</returns>
     private static string CreateTimingPattern(int exitCode)
     {
-        return $@"Finished in (?:\d+ ms|\d+\.\d{{2}} s|\d+ min \d{{2}} s) \(exit code {exitCode}\)\.";
+        return $@"Finished in (?:\d+ ms|\d+\.\d{{2}} s|\d+ min \d{{2}} s|\d+ h \d{{2}} min \d{{2}} s) \(exit code {exitCode}\)\.";
     }
 
     /// <summary>
@@ -109,7 +113,7 @@ public class CommandLineTimingTests
     /// <returns>Regex pattern for an exceptional timing footer.</returns>
     private static string CreateUnavailableExitCodeTimingPattern()
     {
-        return @"Finished in (?:\d+ ms|\d+\.\d{2} s|\d+ min \d{2} s) \(exit code unavailable\)\.";
+        return @"Finished in (?:\d+ ms|\d+\.\d{2} s|\d+ min \d{2} s|\d+ h \d{2} min \d{2} s) \(exit code unavailable\)\.";
     }
 
     /// <summary>
