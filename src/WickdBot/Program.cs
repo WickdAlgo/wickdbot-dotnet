@@ -2,6 +2,7 @@
 
 using System.CommandLine;
 using System.Diagnostics;
+using System.Globalization;
 using WickdBot.Backtesting;
 using WickdBot.Data;
 using WickdBot.Engines;
@@ -101,6 +102,87 @@ internal static class Program
     }
 
     /// <summary>
+    /// Formats a UTC timestamp for stable command output.
+    /// </summary>
+    /// <param name="timestampUtc">UTC timestamp to format.</param>
+    /// <returns>The formatted UTC timestamp.</returns>
+    internal static string FormatUtc(DateTimeOffset timestampUtc)
+    {
+        return timestampUtc
+            .ToUniversalTime()
+            .ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Formats a byte count for compact command output.
+    /// </summary>
+    /// <param name="bytes">Byte count to format.</param>
+    /// <returns>The formatted byte count.</returns>
+    internal static string FormatByteCount(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = (decimal)Math.Max(0, bytes);
+        var unitIndex = 0;
+        while (value >= 1024m && unitIndex < units.Length - 1)
+        {
+            value /= 1024m;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? FormattableString.Invariant($"{value:0} {units[unitIndex]}")
+            : FormattableString.Invariant($"{value:0.0} {units[unitIndex]}");
+    }
+
+    /// <summary>
+    /// Resolves a candidate path and ensures it remains below the configured root.
+    /// </summary>
+    /// <param name="rootPath">Configured artifact root.</param>
+    /// <param name="candidatePath">Candidate artifact path.</param>
+    /// <param name="description">Artifact description used in diagnostics.</param>
+    /// <returns>The resolved artifact path.</returns>
+    /// <exception cref="WickdBotDataException">Thrown when the candidate path escapes the root.</exception>
+    private static string ResolvePathUnderRoot(
+        string rootPath,
+        string candidatePath,
+        string description)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath))
+        {
+            throw new WickdBotDataException($"{description} root is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(candidatePath))
+        {
+            throw new WickdBotDataException($"{description} path is required.");
+        }
+
+        var resolvedRoot = Path.GetFullPath(rootPath);
+        var resolvedCandidate = Path.GetFullPath(candidatePath);
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(resolvedRoot);
+        var rootWithSeparator = normalizedRoot + Path.DirectorySeparatorChar;
+        if (string.Equals(normalizedRoot, resolvedCandidate, GetPathComparison())
+            || !resolvedCandidate.StartsWith(rootWithSeparator, GetPathComparison()))
+        {
+            throw new WickdBotDataException(
+                $"Refusing to delete {description} outside the configured root: {resolvedCandidate}");
+        }
+
+        return resolvedCandidate;
+    }
+
+    /// <summary>
+    /// Gets the appropriate path comparison for the current operating system.
+    /// </summary>
+    /// <returns>The path string comparison.</returns>
+    private static StringComparison GetPathComparison()
+    {
+        return OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+    }
+
+    /// <summary>
     /// Builds the root command and supported MVP subcommands.
     /// </summary>
     /// <param name="historicalDataSource">Historical data source used by fetch and backtest commands.</param>
@@ -119,6 +201,7 @@ internal static class Program
 
         rootCommand.Subcommands.Add(CreateFetchCommand(dataSource, settingsLoader));
         rootCommand.Subcommands.Add(CreateBacktestCommand(pipeline, settingsLoader));
+        rootCommand.Subcommands.Add(CreateManageCommand(settingsLoader));
         rootCommand.Subcommands.Add(CreateAnalyzeCommand());
 
         return rootCommand;
@@ -255,6 +338,230 @@ internal static class Program
                 return 0;
             }
             catch (Exception ex) when (ex is WickdBotDataException or StructureException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the manage command for local datasets and run artifacts.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find local artifact roots.</param>
+    /// <returns>The configured manage command.</returns>
+    private static Command CreateManageCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var command = new Command("manage", "Manage local dataset aliases, cached datasets, and run outputs.");
+        command.Subcommands.Add(CreateManageDatasetsCommand("datasets", loadSettings));
+        command.Subcommands.Add(CreateManageDatasetsCommand("aliases", loadSettings));
+        command.Subcommands.Add(CreateManageRunsCommand(loadSettings));
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates a dataset-alias management command.
+    /// </summary>
+    /// <param name="commandName">Command name to expose.</param>
+    /// <param name="loadSettings">Settings loader used to find the dataset alias catalog.</param>
+    /// <returns>The configured datasets command.</returns>
+    private static Command CreateManageDatasetsCommand(
+        string commandName,
+        Func<WickdBotSettings> loadSettings)
+    {
+        var command = new Command(commandName, "List and delete dataset aliases and cached candle files.");
+        command.Subcommands.Add(CreateManageDatasetsListCommand(loadSettings));
+        command.Subcommands.Add(CreateManageDatasetsDeleteCommand(loadSettings));
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the dataset alias list command.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find the dataset alias catalog.</param>
+    /// <returns>The configured dataset list command.</returns>
+    private static Command CreateManageDatasetsListCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var command = new Command("list", "List saved dataset aliases.");
+        command.SetAction(async (_, cancellationToken) =>
+        {
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            try
+            {
+                var aliases = await DatasetAliasCatalog
+                    .CreateDefault(settings)
+                    .LoadAsync(cancellationToken);
+                WriteDatasetAliasList(aliases);
+                return 0;
+            }
+            catch (DatasetAliasException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the dataset alias delete command.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find the dataset alias catalog.</param>
+    /// <returns>The configured dataset delete command.</returns>
+    private static Command CreateManageDatasetsDeleteCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var aliasOption = new Option<string>("--alias")
+        {
+            Description = "Dataset alias to delete.",
+            Required = true
+        };
+        var deleteCacheOption = new Option<bool>("--delete-cache")
+        {
+            Description = "Also delete the cached candle file when no remaining alias references it."
+        };
+
+        var command = new Command("delete", "Delete a dataset alias and optionally its cached candle file.");
+        command.Options.Add(aliasOption);
+        command.Options.Add(deleteCacheOption);
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            var alias = parseResult.GetRequiredValue(aliasOption);
+            try
+            {
+                var catalog = DatasetAliasCatalog.CreateDefault(settings);
+                var deleteCache = parseResult.GetValue(deleteCacheOption);
+                if (deleteCache)
+                {
+                    var existing = await catalog.ResolveAsync(alias, cancellationToken);
+                    _ = ResolvePathUnderRoot(
+                        settings.CacheRoot,
+                        existing.CandleCachePath,
+                        "dataset cache file");
+                }
+
+                var result = await catalog.DeleteAsync(alias, cancellationToken);
+                WriteDatasetAliasDeletionResult(result);
+
+                if (deleteCache)
+                {
+                    DeleteDatasetCacheFile(settings, result);
+                }
+
+                return 0;
+            }
+            catch (Exception ex) when (ex is DatasetAliasException or WickdBotDataException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the run management command.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find the run-output root.</param>
+    /// <returns>The configured runs command.</returns>
+    private static Command CreateManageRunsCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var command = new Command("runs", "List and delete local backtest run outputs.");
+        command.Subcommands.Add(CreateManageRunsListCommand(loadSettings));
+        command.Subcommands.Add(CreateManageRunsDeleteCommand(loadSettings));
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the run list command.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find the run-output root.</param>
+    /// <returns>The configured run list command.</returns>
+    private static Command CreateManageRunsListCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var command = new Command("list", "List local backtest run outputs.");
+        command.SetAction(_ =>
+        {
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            try
+            {
+                WriteRunArtifactList(RunArtifactCatalog.List(settings.RunsRoot));
+                return 0;
+            }
+            catch (WickdBotDataException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ValidationErrorExitCode;
+            }
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// Creates the run delete command.
+    /// </summary>
+    /// <param name="loadSettings">Settings loader used to find the run-output root.</param>
+    /// <returns>The configured run delete command.</returns>
+    private static Command CreateManageRunsDeleteCommand(Func<WickdBotSettings> loadSettings)
+    {
+        var runIdOption = new Option<string>("--run-id")
+        {
+            Description = "Run ID whose output directory should be deleted.",
+            Required = true
+        };
+        var forceOption = new Option<bool>("--force")
+        {
+            Description = "Confirm recursive deletion of the run output directory."
+        };
+
+        var command = new Command("delete", "Delete a local backtest run output directory.");
+        command.Options.Add(runIdOption);
+        command.Options.Add(forceOption);
+        command.SetAction(parseResult =>
+        {
+            var settings = LoadSettings(loadSettings);
+            if (settings is null)
+            {
+                return ValidationErrorExitCode;
+            }
+
+            if (!parseResult.GetValue(forceOption))
+            {
+                Console.Error.WriteLine("Deleting a run output directory requires --force.");
+                return ValidationErrorExitCode;
+            }
+
+            var runId = parseResult.GetRequiredValue(runIdOption);
+            try
+            {
+                var result = RunArtifactCatalog.Delete(settings.RunsRoot, runId);
+                WriteRunDeletionResult(result);
+                return result.Deleted ? 0 : ValidationErrorExitCode;
+            }
+            catch (WickdBotDataException ex)
             {
                 Console.Error.WriteLine(ex.Message);
                 return ValidationErrorExitCode;
@@ -597,6 +904,115 @@ internal static class Program
     {
         Console.WriteLine(
             $"Saved dataset alias '{datasetAlias.Alias}' for {datasetAlias.MarketId} {datasetAlias.Timeframe}.");
+    }
+
+    /// <summary>
+    /// Writes the saved dataset alias list.
+    /// </summary>
+    /// <param name="aliases">Dataset aliases to report.</param>
+    private static void WriteDatasetAliasList(IReadOnlyList<DatasetAlias> aliases)
+    {
+        if (aliases.Count == 0)
+        {
+            Console.WriteLine("No dataset aliases found.");
+            return;
+        }
+
+        Console.WriteLine("Dataset aliases:");
+        foreach (var alias in aliases)
+        {
+            Console.WriteLine(
+                $"{alias.Alias} | {alias.MarketId} | {alias.ExchangeId} | {alias.Timeframe} | {FormatUtc(alias.FromUtc)} -> {FormatUtc(alias.ToUtc)} | {alias.CandleCachePath}");
+        }
+    }
+
+    /// <summary>
+    /// Writes the dataset alias deletion result.
+    /// </summary>
+    /// <param name="result">Alias deletion result to report.</param>
+    private static void WriteDatasetAliasDeletionResult(DatasetAliasDeletionResult result)
+    {
+        Console.WriteLine($"Deleted dataset alias '{result.DeletedAlias.Alias}'.");
+    }
+
+    /// <summary>
+    /// Deletes a dataset cache file when it is not still referenced by another alias.
+    /// </summary>
+    /// <param name="settings">Loaded WickdBot settings.</param>
+    /// <param name="result">Alias deletion result that identifies the candidate cache file.</param>
+    /// <exception cref="WickdBotDataException">Thrown when cache deletion is unsafe or fails.</exception>
+    private static void DeleteDatasetCacheFile(
+        WickdBotSettings settings,
+        DatasetAliasDeletionResult result)
+    {
+        var cachePath = result.DeletedAlias.CandleCachePath;
+        var isStillReferenced = result.RemainingAliases.Any(alias =>
+            string.Equals(
+                Path.GetFullPath(alias.CandleCachePath),
+                Path.GetFullPath(cachePath),
+                GetPathComparison()));
+        if (isStillReferenced)
+        {
+            Console.WriteLine($"Left shared dataset cache file in place: {cachePath}");
+            return;
+        }
+
+        var resolvedCachePath = ResolvePathUnderRoot(
+            settings.CacheRoot,
+            cachePath,
+            "dataset cache file");
+        if (!File.Exists(resolvedCachePath))
+        {
+            Console.WriteLine($"Dataset cache file was already missing: {resolvedCachePath}");
+            return;
+        }
+
+        try
+        {
+            File.Delete(resolvedCachePath);
+            Console.WriteLine($"Deleted dataset cache file: {resolvedCachePath}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new WickdBotDataException(
+                $"Could not delete dataset cache file: {resolvedCachePath}. {ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Writes the local run artifact list.
+    /// </summary>
+    /// <param name="runs">Run artifacts to report.</param>
+    private static void WriteRunArtifactList(IReadOnlyList<RunArtifact> runs)
+    {
+        if (runs.Count == 0)
+        {
+            Console.WriteLine("No runs found.");
+            return;
+        }
+
+        Console.WriteLine("Runs:");
+        foreach (var run in runs)
+        {
+            Console.WriteLine(
+                $"{run.RunId} | files {run.FileCount} | {FormatByteCount(run.TotalBytes)} | updated {FormatUtc(run.LastWriteTimeUtc)} | {run.DirectoryPath}");
+        }
+    }
+
+    /// <summary>
+    /// Writes the run deletion result.
+    /// </summary>
+    /// <param name="result">Run deletion result to report.</param>
+    private static void WriteRunDeletionResult(RunDeletionResult result)
+    {
+        if (result.Deleted)
+        {
+            Console.WriteLine($"Deleted run '{result.RunId}' at {result.DirectoryPath}.");
+            return;
+        }
+
+        Console.Error.WriteLine($"Run '{result.RunId}' was not found at {result.DirectoryPath}.");
     }
 
     /// <summary>

@@ -23,6 +23,8 @@ Implemented:
   `data/datasets.json`; `backtest --dataset` replays it.
 - `backtest`: replays cached candles, runs the structure engine, and writes
   `runs/{runId}/structures.jsonl`.
+- `manage`: lists and deletes saved dataset aliases, optional cached candle
+  files, and local backtest run output folders.
 - Structure journaling: emits deterministic events for swings, equal highs/lows,
   liquidity breaches, sweeps, order blocks, expansion/FVG events, and lifecycle
   updates.
@@ -71,6 +73,15 @@ Replay that dataset through the current structure engine:
 
 ```text
 dotnet run --project src/WickdBot -- backtest --dataset may6-session --run-id phase-3-smoke
+```
+
+List or clean generated local artifacts:
+
+```text
+dotnet run --project src/WickdBot -- manage datasets list
+dotnet run --project src/WickdBot -- manage datasets delete --alias may6-session --delete-cache
+dotnet run --project src/WickdBot -- manage runs list
+dotnet run --project src/WickdBot -- manage runs delete --run-id phase-3-smoke --force
 ```
 
 The backtest command currently stops after writing structure events. It does not

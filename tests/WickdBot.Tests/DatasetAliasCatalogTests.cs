@@ -51,6 +51,48 @@ public class DatasetAliasCatalogTests
     }
 
     /// <summary>
+    /// Confirms aliases can be deleted while preserving the rest of the catalog.
+    /// </summary>
+    [Fact]
+    public async Task DeleteRemovesAliasAndPreservesRemainingAliases()
+    {
+        using var directory = new TemporaryDirectory();
+        var request = TestSettingsFactory.CreateRunRequest(directory.DirectoryPath);
+        var catalog = CreateCatalog(directory);
+        await catalog.SaveAsync(
+            "first",
+            CreateHistoricalDataResult(request),
+            force: false);
+        await catalog.SaveAsync(
+            "second",
+            CreateHistoricalDataResult(request),
+            force: false);
+
+        var result = await catalog.DeleteAsync("first");
+        var aliases = await catalog.LoadAsync();
+        var remaining = Assert.Single(aliases);
+
+        Assert.Equal("first", result.DeletedAlias.Alias);
+        Assert.Single(result.RemainingAliases);
+        Assert.Equal("second", remaining.Alias);
+    }
+
+    /// <summary>
+    /// Confirms deleting a missing alias fails with a clear message.
+    /// </summary>
+    [Fact]
+    public async Task DeleteRejectsMissingAlias()
+    {
+        using var directory = new TemporaryDirectory();
+        var catalog = CreateCatalog(directory);
+
+        var exception = await Assert.ThrowsAsync<DatasetAliasException>(
+            () => catalog.DeleteAsync("missing"));
+
+        Assert.Contains("Dataset alias 'missing' was not found", exception.Message);
+    }
+
+    /// <summary>
     /// Confirms duplicate aliases fail unless overwrite is explicit.
     /// </summary>
     [Fact]

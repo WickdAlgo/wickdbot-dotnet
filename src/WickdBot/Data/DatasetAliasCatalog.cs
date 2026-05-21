@@ -115,6 +115,36 @@ internal sealed class DatasetAliasCatalog
     }
 
     /// <summary>
+    /// Deletes an existing alias from the local catalog.
+    /// </summary>
+    /// <param name="alias">Friendly dataset alias.</param>
+    /// <param name="cancellationToken">Cancellation token for file I/O.</param>
+    /// <returns>The removed alias and aliases left in the catalog.</returns>
+    /// <exception cref="DatasetAliasException">Thrown when the alias is missing.</exception>
+    internal async Task<DatasetAliasDeletionResult> DeleteAsync(
+        string alias,
+        CancellationToken cancellationToken = default)
+    {
+        DatasetAlias.ValidateAlias(alias);
+
+        await using var catalogLock = await OpenCatalogLockAsync(cancellationToken);
+        var aliases = await LoadAsync(cancellationToken);
+        var existing = aliases.SingleOrDefault(item => item.Alias == alias);
+        if (existing is null)
+        {
+            throw new DatasetAliasException($"Dataset alias '{alias}' was not found.");
+        }
+
+        var updatedAliases = aliases
+            .Where(item => item.Alias != alias)
+            .OrderBy(item => item.Alias, StringComparer.Ordinal)
+            .ToArray();
+
+        await SaveAllAsync(updatedAliases, cancellationToken);
+        return new DatasetAliasDeletionResult(existing, updatedAliases);
+    }
+
+    /// <summary>
     /// Resolves an existing dataset alias into a run request.
     /// </summary>
     /// <param name="alias">Friendly dataset alias.</param>

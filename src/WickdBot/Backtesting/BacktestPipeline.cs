@@ -87,7 +87,7 @@ internal sealed class BacktestPipeline
     /// </summary>
     /// <param name="runId">Run ID to validate.</param>
     /// <exception cref="WickdBotDataException">Thrown when the run ID is empty, path-like, or contains unsupported characters.</exception>
-    private static void ValidateRunId(string runId)
+    internal static void ValidateRunId(string runId)
     {
         if (string.IsNullOrWhiteSpace(runId))
         {
