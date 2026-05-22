@@ -1,8 +1,8 @@
-# C# Native WickdBot Modular Architecture
+# C# Native Wickd Modular Architecture
 
 ## Summary
 
-WickdBot is a C#/.NET 8 native, backtest-first trading research system. The MVP proves the path `A1 -> B -> C -> D -> E1` with normalized OHLCV candle events for exactly one market and one timeframe per run.
+Wickd is a C#/.NET 8 native, backtest-first trading research system. The MVP proves the path `A1 -> B -> C -> D -> E1` with normalized OHLCV candle events for exactly one market and one timeframe per run.
 
 B, C and D are market-agnostic: they do not care which exchange or pair produced the candles. They consume ordered OHLCV candles plus metadata and make decisions from candle structure only.
 
@@ -20,9 +20,9 @@ A1 HistoricalDataSource
 ## Project Shape
 
 ```text
-WickdBot/
+Wickd/
   src/
-    WickdBot/
+    Wickd/
       Program.cs
       appsettings.json
       markets.json
@@ -34,7 +34,7 @@ WickdBot/
       Infrastructure/
 
   tests/
-    WickdBot.Tests/
+    Wickd.Tests/
       Fixtures/
         Golden/
 ```
@@ -109,16 +109,16 @@ analyze --run-id <runId>
 
 ## Distribution
 
-WickdBot is CLI-first and should remain platform-agnostic across Windows, Linux, and macOS wherever the supported .NET runtime is available.
+Wickd is CLI-first and should remain platform-agnostic across Windows, Linux, and macOS wherever the supported .NET runtime is available.
 
-The first distribution target is a .NET global tool published as a NuGet package with `ToolCommandName=wickdbot`. This keeps the early product simple for technical users:
+The first distribution target is a .NET global tool published as a NuGet package with `ToolCommandName=Wickd`. This keeps the early product simple for technical users:
 
 ```text
-dotnet tool install --global WickdBot
-wickdbot --help
-wickdbot fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-wickdbot backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-wickdbot analyze --run-id <runId>
+dotnet tool install --global Wickd
+Wickd --help
+Wickd fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+Wickd backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+Wickd analyze --run-id <runId>
 ```
 
 Self-contained platform-specific binaries can be added later for users who do not want to install or manage a .NET runtime. Those releases should be treated as a packaging extension, not the first MVP distribution path.
@@ -408,7 +408,7 @@ Stable terminal reject categories should include cases such as:
 Golden samples are stored as one folder per sample:
 
 ```text
-WickdBot.Tests/Fixtures/Golden/001-btcusdt-5m-bullish-ob/
+Wickd.Tests/Fixtures/Golden/001-btcusdt-5m-bullish-ob/
   candles.jsonl
   expected.json
   screenshot.png

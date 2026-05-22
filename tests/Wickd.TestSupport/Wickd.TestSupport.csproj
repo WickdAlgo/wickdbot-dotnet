@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wickd.Core.Tests" />
+    <InternalsVisibleTo Include="Wickd.Cli.Tests" />
+    <InternalsVisibleTo Include="Wickd.Adapters.Ccxt.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Wickd.Core\Wickd.Core.csproj" />
+  </ItemGroup>
+</Project>

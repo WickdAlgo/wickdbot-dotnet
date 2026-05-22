@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <WickdVersion>1.0.0</WickdVersion>
+    <Version>$(WickdVersion)</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <RepositoryUrl>https://github.com/WickdAlgo/Wickd-dotnet</RepositoryUrl>
+    <Copyright>Copyright 2026</Copyright>
+  </PropertyGroup>
+</Project>

@@ -4,7 +4,7 @@ Date: 2026-05-18
 
 ## Goal
 
-Turn Phase 3 structure output into deterministic setup evaluations. Implement the C layer so WickdBot can accept generic OB/FVG setups or emit terminal setup rejects, while still stopping before trade creation.
+Turn Phase 3 structure output into deterministic setup evaluations. Implement the C layer so Wickd can accept generic OB/FVG setups or emit terminal setup rejects, while still stopping before trade creation.
 
 ## Planned Scope
 
@@ -62,9 +62,9 @@ Not started yet.
 Phase 4 is complete when these commands pass:
 
 ```text
-dotnet test WickdBot.slnx
-dotnet run --project src/WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session
-dotnet run --project src/WickdBot -- backtest --dataset may6-session --run-id phase-4-smoke
+dotnet test Wickd.slnx
+dotnet run --project src/Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session
+dotnet run --project src/Wickd.Cli -- backtest --dataset may6-session --run-id phase-4-smoke
 ```
 
 The code should reliably prove:
@@ -81,6 +81,8 @@ The code should reliably prove:
 Record the result when validation has been run.
 
 ## Notes
+
+Pre-Phase 4 architecture migration completed on 2026-05-22. See `docs/implementation-history/2026-05-22-wickd-technical-rename.md` for the detailed rename and package-split record.
 
 Phase 4 is the first decision-making layer, but it should remain a generic open-source setup evaluator rather than a tuned private strategy. The repository can expose the contracts, journal format, pipeline wiring, and reference OB/FVG rules; private edge should stay in local configuration or future private filters outside the committed codebase.
 

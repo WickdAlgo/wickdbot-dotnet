@@ -1,10 +1,10 @@
 ---
-title: WickdBot Docs
+title: Wickd Docs
 ---
 
-# WickdBot Docs
+# Wickd Docs
 
-WickdBot documentation is generated from C# XML documentation comments and curated Markdown pages.
+Wickd documentation is generated from C# XML documentation comments and curated Markdown pages.
 
 - [Programmatic Business Flows](business-flows.md)
 - [API Reference](api/index.md)

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Wickd.Adapters.Ccxt</RootNamespace>
+    <AssemblyName>Wickd.Adapters.Ccxt</AssemblyName>
+    <AssemblyTitle>Wickd.Adapters.Ccxt</AssemblyTitle>
+    <Product>WickdAlgo</Product>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>Wickd.Adapters.Ccxt</PackageId>
+    <Description>CCXT-backed market data adapters for the WickdAlgo platform.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>trading;backtesting;ccxt;adapter</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wickd.Adapters.Ccxt.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wickd.Core\Wickd.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ccxt" Version="4.5.53" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+</Project>

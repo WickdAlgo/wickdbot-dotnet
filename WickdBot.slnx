@@ -13,6 +13,11 @@
     <File Path=".gitignore" />
     <File Path="AGENTS.md" />
   </Folder>
-  <Project Path="src/WickdBot/WickdBot.csproj" />
-  <Project Path="tests/WickdBot.Tests/WickdBot.Tests.csproj" />
+  <Project Path="src/WickdBot.Adapters.Ccxt/WickdBot.Adapters.Ccxt.csproj" />
+  <Project Path="src/WickdBot.Cli/WickdBot.Cli.csproj" />
+  <Project Path="src/WickdBot.Core/WickdBot.Core.csproj" />
+  <Project Path="tests/WickdBot.Adapters.Ccxt.Tests/WickdBot.Adapters.Ccxt.Tests.csproj" />
+  <Project Path="tests/WickdBot.Cli.Tests/WickdBot.Cli.Tests.csproj" />
+  <Project Path="tests/WickdBot.Core.Tests/WickdBot.Core.Tests.csproj" />
+  <Project Path="tests/WickdBot.TestSupport/WickdBot.TestSupport.csproj" />
 </Solution>

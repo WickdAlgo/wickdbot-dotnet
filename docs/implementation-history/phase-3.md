@@ -4,7 +4,7 @@ Date: 2026-05-14
 
 ## Goal
 
-Turn replayed historical candles into deterministic, market-agnostic structure events. Implement the B layer so WickdBot can detect swings, liquidity, sweeps, order blocks, expansion/FVG events, and OB/FVG lifecycle updates through configurable parameters, without making setup or trade decisions.
+Turn replayed historical candles into deterministic, market-agnostic structure events. Implement the B layer so Wickd can detect swings, liquidity, sweeps, order blocks, expansion/FVG events, and OB/FVG lifecycle updates through configurable parameters, without making setup or trade decisions.
 
 ## Planned Scope
 
@@ -71,7 +71,7 @@ Turn replayed historical candles into deterministic, market-agnostic structure e
 
 ## Completed Work
 
-- Added validated `StructureSettings` binding from `WickdBot:Structure` in `appsettings.json`.
+- Added validated `StructureSettings` binding from `Wickd:Structure` in `appsettings.json`.
 - Added optional `appsettings.Local.json` support next to the committed settings file so private local structure parameters can override defaults without `.env` or source-control changes.
 - Added the B-layer structure contracts and engine for deterministic structure processing:
   - structure events and event types;
@@ -103,9 +103,9 @@ Turn replayed historical candles into deterministic, market-agnostic structure e
 Phase 3 is complete when these commands pass:
 
 ```text
-dotnet test WickdBot.slnx
-dotnet run --project src/WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session
-dotnet run --project src/WickdBot -- backtest --dataset may6-session --run-id phase-3-smoke
+dotnet test Wickd.slnx
+dotnet run --project src/Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session
+dotnet run --project src/Wickd.Cli -- backtest --dataset may6-session --run-id phase-3-smoke
 ```
 
 The code should reliably prove:
@@ -123,11 +123,11 @@ Record the result when validation has been run.
 Current validation on 2026-05-14:
 
 ```text
-dotnet test .\WickdBot.slnx
-dotnet run --project .\src\WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
-dotnet run --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-smoke
-dotnet run --no-restore --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-refined-smoke
-dotnet run --no-restore --project .\src\WickdBot -- backtest --dataset may6-session --run-id phase-3-swing-settings-smoke
+dotnet test .\Wickd.slnx
+dotnet run --project .\src\Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
+dotnet run --project .\src\Wickd.Cli -- backtest --dataset may6-session --run-id phase-3-smoke
+dotnet run --no-restore --project .\src\Wickd.Cli -- backtest --dataset may6-session --run-id phase-3-refined-smoke
+dotnet run --no-restore --project .\src\Wickd.Cli -- backtest --dataset may6-session --run-id phase-3-swing-settings-smoke
 ```
 
 Results:
@@ -141,7 +141,7 @@ Results:
 
 ## Notes
 
-Phase 3 is still neutral market-structure work. It should describe what happened in the candle stream, not whether WickdBot should trade it.
+Phase 3 is still neutral market-structure work. It should describe what happened in the candle stream, not whether Wickd should trade it.
 
 Open-source boundary: the repository can expose the infrastructure, event model, and generic detection rules, but it should not encode private tuned parameter sets or future proprietary setup acceptance filters. Public defaults should be useful for development and examples, not presented as the "best" SMC settings.
 

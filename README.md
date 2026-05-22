@@ -1,7 +1,8 @@
-# WickdBot
+# WickdAlgo
 
-WickdBot is a C#/.NET 8, CLI-first trading research tool for deterministic
-backtest plumbing and Smart Money Concepts structure journaling.
+WickdAlgo is a C#/.NET 8 trading research platform for deterministic backtest
+plumbing and Smart Money Concepts structure journaling. Its technical codebase
+uses the `Wickd.*` project, package, and namespace family.
 
 The current implementation supports historical candle fetching/caching and
 backtest replay through the `A1 -> B` path:
@@ -57,31 +58,48 @@ work but will fail historical fetch until a matching data client exists.
 Run commands from the repository root:
 
 ```text
-dotnet restore WickdBot.slnx
-dotnet build WickdBot.slnx
-dotnet test WickdBot.slnx
-dotnet run --project src/WickdBot -- --help
+dotnet restore Wickd.slnx
+dotnet build Wickd.slnx
+dotnet test Wickd.slnx
+dotnet run --project src/Wickd.Cli -- --help
+```
+
+Package and install the CLI as a local NuGet tool for a smoke test:
+
+```text
+dotnet pack src/Wickd.Cli/Wickd.Cli.csproj -c Release
+dotnet tool install Wickd.Cli --source src/Wickd.Cli/bin/Release --tool-path artifacts/wickd-tool
+artifacts/wickd-tool/wickd --help
+```
+
+After publishing to NuGet, users install and run the WickdAlgo CLI as a .NET tool:
+
+```text
+dotnet tool install --global Wickd.Cli
+wickd config init
+wickd config path
+wickd --help
 ```
 
 Fetch and name a reusable historical candle range:
 
 ```text
-dotnet run --project src/WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
+dotnet run --project src/Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
 ```
 
 Replay that dataset through the current structure engine:
 
 ```text
-dotnet run --project src/WickdBot -- backtest --dataset may6-session --run-id phase-3-smoke
+dotnet run --project src/Wickd.Cli -- backtest --dataset may6-session --run-id phase-3-smoke
 ```
 
 List or clean generated local artifacts:
 
 ```text
-dotnet run --project src/WickdBot -- manage datasets list
-dotnet run --project src/WickdBot -- manage datasets delete --alias may6-session --delete-cache
-dotnet run --project src/WickdBot -- manage runs list
-dotnet run --project src/WickdBot -- manage runs delete --run-id phase-3-smoke --force
+dotnet run --project src/Wickd.Cli -- manage datasets list
+dotnet run --project src/Wickd.Cli -- manage datasets delete --alias may6-session --delete-cache
+dotnet run --project src/Wickd.Cli -- manage runs list
+dotnet run --project src/Wickd.Cli -- manage runs delete --run-id phase-3-smoke --force
 ```
 
 The backtest command currently stops after writing structure events. It does not
@@ -89,7 +107,7 @@ create `setups.jsonl`, `trades.jsonl`, `outcomes.jsonl`, or `analysis.json`.
 
 ## Generated Outputs
 
-WickdBot writes generated runtime data under ignored local folders:
+The WickdAlgo CLI writes generated runtime data under ignored local folders:
 
 ```text
 data/cache/.../candles.jsonl
@@ -105,48 +123,81 @@ runs/{runId}/structures.jsonl
 ## Project Structure
 
 ```text
-WickdBot/
+Wickd/
   PLAN.md
   README.md
   src/
-    WickdBot/
-      Program.cs
-      appsettings.json
-      markets.json
+    Wickd.Core/
       Backtesting/
       Data/
       Engines/
       Infrastructure/
       Models/
+    Wickd.Adapters.Ccxt/
+      CcxtBinanceMarketDataClient.cs
+    Wickd.Cli/
+      Program.cs
+      appsettings.defaults.json
+      markets.defaults.json
   tests/
-    WickdBot.Tests/
+    Wickd.Core.Tests/
+    Wickd.Adapters.Ccxt.Tests/
+    Wickd.Cli.Tests/
+    Wickd.TestSupport/
   docs/
     implementation-history/
 ```
 
-- `src/WickdBot/` contains the .NET 8 CLI app and current runtime modules.
-- `tests/WickdBot.Tests/` contains xUnit coverage for CLI wiring,
-  configuration, data normalization, cache/replay behavior, and structure
-  events.
+- `src/Wickd.Core/` contains reusable engine, data, model, backtesting, and
+  infrastructure contracts.
+- `src/Wickd.Adapters.Ccxt/` contains the CCXT-backed Binance market data
+  adapter.
+- `src/Wickd.Cli/` contains the .NET 8 CLI/global tool entry point and
+  packaged configuration defaults.
+- `tests/` contains split xUnit coverage for Core, adapter, CLI, and shared
+  test support.
 - `docs/implementation-history/` records completed implementation phases.
 - `PLAN.md` is the current architecture and strategy plan.
 
 ## Configuration
 
-Runtime configuration lives beside the CLI project:
+Packaged defaults live beside the CLI project:
 
 ```text
-src/WickdBot/appsettings.json
-src/WickdBot/markets.json
-src/WickdBot/appsettings.Local.json
+src/Wickd.Cli/appsettings.defaults.json
+src/Wickd.Cli/markets.defaults.json
 ```
 
-- `appsettings.json` contains committed defaults for storage, backtest, setup,
-  trade, settlement, and structure settings.
-- `markets.json` maps WickdBot market IDs, such as `BTC_USDT_PERP`, to exchange
-  IDs and exchange symbols.
-- `appsettings.Local.json` is optional and ignored by Git. Use it for private
-  local overrides without changing committed defaults.
+- `appsettings.defaults.json` contains public reference defaults for storage,
+  backtest, setup, trade, settlement, and structure settings.
+- `markets.defaults.json` maps Wickd market IDs, such as `BTC_USDT_PERP`, to
+  exchange IDs and exchange symbols.
+- `appsettings.Local.json` remains ignored by Git for private repository-local
+  tuning during development, but it is not packaged.
+
+Installed users should edit user-owned copies, not package files. Initialize
+them with:
+
+```text
+wickd config init
+wickd config path
+```
+
+Default user config locations:
+
+```text
+Windows: %APPDATA%\Wickd\
+macOS: ~/Library/Application Support/Wickd/
+Linux: $XDG_CONFIG_HOME/wickd/ or ~/.config/wickd/
+```
+
+Configuration path precedence:
+
+```text
+--config <path>
+WICKD_CONFIG
+user-profile appsettings.json
+```
 
 Each backtest run is for exactly one market and one timeframe.
 

@@ -4,7 +4,7 @@ Date: 2026-05-12
 
 ## Goal
 
-Turn validated Phase 1 run requests into a real deterministic candle stream. Implement A1 historical data handling so WickdBot can fetch configured market candles, cache normalized JSONL, and replay cached candles for later backtest phases.
+Turn validated Phase 1 run requests into a real deterministic candle stream. Implement A1 historical data handling so Wickd can fetch configured market candles, cache normalized JSONL, and replay cached candles for later backtest phases.
 
 ## Planned Scope
 
@@ -41,35 +41,35 @@ Turn validated Phase 1 run requests into a real deterministic candle stream. Imp
 ## Completed Work
 
 - Added Phase 2 historical data contracts and results for market data clients, raw exchange candles, fetch/cache summaries, replay summaries, and expected data failures.
-- Added the `ccxt` NuGet dependency and a Binance CCXT client that preserves WickdBot's configured `binance` exchange identity while using CCXT's Binance USD-M adapter internally.
+- Added the `ccxt` NuGet dependency and a Binance CCXT client that preserves Wickd's configured `binance` exchange identity while using CCXT's Binance USD-M adapter internally.
 - Implemented deterministic historical cache behavior: cache hit reads existing JSONL, cache miss fetches public OHLCV, all accepted candles are normalized before returning or writing, and gap metadata remains available.
 - Added completed-candle validation so requests whose exclusive `to` includes incomplete candles fail before fetching.
 - Added replay behavior that requires an existing cache, validates cached historical candle identity, and emits backtest-source candles with the supplied run ID.
 - Extended `fetch` to create/reuse candle caches and `backtest` to replay cached input before later strategy phases exist.
 - Added a generated `data/datasets.json` alias catalog, `fetch --alias`, `fetch --force`, and `backtest --dataset` so repeated backtests can reuse a named cached range without retyping market, timeframe, and UTC range arguments.
 - Added focused xUnit coverage for cache hit/miss behavior, unsupported exchanges, completed-candle validation, normalization before caching, gap reporting, replay conversion, CLI behavior, and CCXT Binance mapping/conversion.
-- Added `.gitignore` entries for generated WickdBot runtime outputs under `data/datasets.json`, `data/cache/`, and `runs/`.
+- Added `.gitignore` entries for generated Wickd runtime outputs under `data/datasets.json`, `data/cache/`, and `runs/`.
 
 ## Validation
 
 Phase 2 is complete when these commands pass:
 
 ```text
-dotnet restore WickdBot.slnx
-dotnet test WickdBot.slnx
-dotnet run --project src/WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-dotnet run --project src/WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-dotnet run --project src/WickdBot -- backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --run-id phase-2-smoke
+dotnet restore Wickd.slnx
+dotnet test Wickd.slnx
+dotnet run --project src/Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+dotnet run --project src/Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+dotnet run --project src/Wickd.Cli -- backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --run-id phase-2-smoke
 ```
 
 Current validation on 2026-05-12:
 
 ```text
-dotnet restore .\WickdBot.slnx
-dotnet test .\WickdBot.slnx --no-restore
-dotnet run --no-build --project .\src\WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-dotnet run --no-build --project .\src\WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
-dotnet run --no-build --project .\src\WickdBot -- backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --run-id phase-2-smoke
+dotnet restore .\Wickd.slnx
+dotnet test .\Wickd.slnx --no-restore
+dotnet run --no-build --project .\src\Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+dotnet run --no-build --project .\src\Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z
+dotnet run --no-build --project .\src\Wickd.Cli -- backtest --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --run-id phase-2-smoke
 ```
 
 Results:
@@ -93,15 +93,15 @@ Record the result when validation has been run.
 Dataset alias update on 2026-05-13:
 
 ```text
-dotnet build .\WickdBot.slnx --no-restore
-dotnet test .\WickdBot.slnx --no-restore
-dotnet run --no-build --project .\src\WickdBot -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
+dotnet build .\Wickd.slnx --no-restore
+dotnet test .\Wickd.slnx --no-restore
+dotnet run --no-build --project .\src\Wickd.Cli -- fetch --market BTC_USDT_PERP --timeframe 5m --from 2026-05-06T00:00:00Z --to 2026-05-07T07:00:00Z --alias may6-session --force
 ```
 
 Results:
 
 - Build passed with 0 warnings and 0 errors.
-- Test execution and CLI smoke execution were blocked by Windows Application Control when loading the freshly built `WickdBot.dll` with `0x800711C7`.
+- Test execution and CLI smoke execution were blocked by Windows Application Control when loading the freshly built `Wickd.dll` with `0x800711C7`.
 - Alias-specific test coverage has been added, but it still needs to be executed in an environment that allows the built assembly to load.
 
 ## Notes

@@ -17,8 +17,8 @@ Before module work starts, migrate the project from classic .NET Framework 4.7.2
 
 ## Completed Work
 
-- Migrated the main app to an SDK-style .NET 8 project under `src/WickdBot`.
-- Added a separate .NET 8 test project under `tests/WickdBot.Tests`.
+- Migrated the main app to an SDK-style .NET 8 project under `src/Wickd`.
+- Added a separate .NET 8 test project under `tests/Wickd.Tests`.
 - Added `System.CommandLine`.
 - Added command skeletons for:
   - `fetch`
@@ -39,7 +39,7 @@ Before module work starts, migrate the project from classic .NET Framework 4.7.2
 Phase 0 was verified with:
 
 ```text
-dotnet test WickdBot.slnx
+dotnet test Wickd.slnx
 ```
 
 Result:
