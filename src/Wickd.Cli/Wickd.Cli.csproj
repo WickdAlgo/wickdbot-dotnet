@@ -10,8 +10,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>wickd</ToolCommandName>
-    <PackageId>Wickd.Cli</PackageId>
+    <PackageId>wickd</PackageId>
     <Description>CLI tool for deterministic backtest plumbing and Smart Money Concepts structure journaling in the WickdAlgo platform.</Description>
+    <PackageReleaseNotes>First public WickdAlgo CLI prerelease with historical fetching, candle cache replay, dataset aliases, structure journaling, and local configuration initialization.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>trading;backtesting;cli;smc</PackageTags>
   </PropertyGroup>

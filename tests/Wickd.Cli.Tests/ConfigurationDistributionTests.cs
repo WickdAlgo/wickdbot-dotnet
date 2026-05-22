@@ -149,9 +149,9 @@ public class ConfigurationDistributionTests
     /// Confirms package metadata is configured for a .NET tool without private local settings.
     /// </summary>
     [Fact]
-    public void ProjectFilePacksDotnetToolDefaultsWithoutLocalSettings()
+    public void ProjectFilesPackPublicNuGetMetadata()
     {
-        var projectPath = Path.GetFullPath(Path.Combine(
+        var cliProjectPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..",
             "..",
@@ -161,15 +161,53 @@ public class ConfigurationDistributionTests
             "src",
             "Wickd.Cli",
             "Wickd.Cli.csproj"));
-        var project = XDocument.Load(projectPath);
-        var projectText = File.ReadAllText(projectPath);
+        var coreProjectPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "src",
+            "Wickd.Core",
+            "Wickd.Core.csproj"));
+        var adapterProjectPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "src",
+            "Wickd.Adapters.Ccxt",
+            "Wickd.Adapters.Ccxt.csproj"));
+        var propsPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Directory.Build.props"));
+        var cliProject = XDocument.Load(cliProjectPath);
+        var coreProject = XDocument.Load(coreProjectPath);
+        var adapterProject = XDocument.Load(adapterProjectPath);
+        var props = XDocument.Load(propsPath);
+        var cliProjectText = File.ReadAllText(cliProjectPath);
 
-        Assert.Equal("true", project.Descendants("PackAsTool").Single().Value);
-        Assert.Equal("wickd", project.Descendants("ToolCommandName").Single().Value);
-        Assert.Equal("Wickd.Cli", project.Descendants("PackageId").Single().Value);
-        Assert.Contains("appsettings.defaults.json", projectText);
-        Assert.Contains("markets.defaults.json", projectText);
-        Assert.DoesNotContain("appsettings.Local.json", projectText);
+        Assert.Equal("true", cliProject.Descendants("PackAsTool").Single().Value);
+        Assert.Equal("wickd", cliProject.Descendants("ToolCommandName").Single().Value);
+        Assert.Equal("wickd", cliProject.Descendants("PackageId").Single().Value);
+        Assert.Equal("Wickd.Core", coreProject.Descendants("PackageId").Single().Value);
+        Assert.Equal("Wickd.Adapters.Ccxt", adapterProject.Descendants("PackageId").Single().Value);
+        Assert.Equal("0.1.0-preview.1", props.Descendants("WickdVersion").Single().Value);
+        Assert.Equal("WickdAlgo, DevBD1", props.Descendants("Authors").Single().Value);
+        Assert.Equal("https://github.com/WickdAlgo/wickd-core", props.Descendants("RepositoryUrl").Single().Value);
+        Assert.Equal("https://github.com/WickdAlgo/wickd-core", props.Descendants("PackageProjectUrl").Single().Value);
+        Assert.Equal("Apache-2.0", props.Descendants("PackageLicenseExpression").Single().Value);
+        Assert.Contains("appsettings.defaults.json", cliProjectText);
+        Assert.Contains("markets.defaults.json", cliProjectText);
+        Assert.DoesNotContain("appsettings.Local.json", cliProjectText);
     }
 
     /// <summary>

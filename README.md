@@ -68,18 +68,27 @@ Package and install the CLI as a local NuGet tool for a smoke test:
 
 ```text
 dotnet pack src/Wickd.Cli/Wickd.Cli.csproj -c Release
-dotnet tool install Wickd.Cli --source src/Wickd.Cli/bin/Release --tool-path artifacts/wickd-tool
+dotnet tool install wickd --source src/Wickd.Cli/bin/Release --tool-path artifacts/wickd-tool --version 0.1.0-preview.1
 artifacts/wickd-tool/wickd --help
 ```
 
 After publishing to NuGet, users install and run the WickdAlgo CLI as a .NET tool:
 
 ```text
-dotnet tool install --global Wickd.Cli
+dotnet tool install --global wickd --version 0.1.0-preview.1
 wickd config init
 wickd config path
 wickd --help
 ```
+
+Developers building on the engine can install the SDK packages separately:
+
+```text
+dotnet add package Wickd.Core --version 0.1.0-preview.1
+dotnet add package Wickd.Adapters.Ccxt --version 0.1.0-preview.1
+```
+
+CLI users do not need to install the SDK packages separately.
 
 Fetch and name a reusable historical candle range:
 

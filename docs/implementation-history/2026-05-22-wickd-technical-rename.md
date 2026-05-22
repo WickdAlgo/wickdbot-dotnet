@@ -41,8 +41,13 @@ Rename the technical codebase from `WickdBot.*` to `Wickd.*` while keeping `Wick
 - Updated package identities:
   - `Wickd.Core`
   - `Wickd.Adapters.Ccxt`
-  - `Wickd.Cli`
+  - `wickd` for the CLI NuGet package, while keeping `Wickd.Cli` as the project and assembly name.
 - Updated the CLI tool command to `wickd`.
+- Set first public prerelease package metadata:
+  - version `0.1.0-preview.1`;
+  - authors `WickdAlgo, DevBD1`;
+  - repository and project URL `https://github.com/WickdAlgo/wickd-core`;
+  - Apache-2.0 license expression and root `LICENSE` file.
 - Renamed namespaces and technical types from `WickdBot` to `Wickd`, including:
   - `WickdSettings`
   - `WickdConfigurationLoader`
@@ -67,7 +72,7 @@ dotnet run --project src/Wickd.Cli -- --help
 dotnet pack src/Wickd.Core -c Release
 dotnet pack src/Wickd.Adapters.Ccxt -c Release
 dotnet pack src/Wickd.Cli -c Release
-dotnet tool install Wickd.Cli --source src/Wickd.Cli/bin/Release --tool-path artifacts/wickd-tool
+dotnet tool install wickd --source src/Wickd.Cli/bin/Release --tool-path artifacts/wickd-tool --version 0.1.0-preview.1
 artifacts\wickd-tool\wickd --help
 ```
 
@@ -79,7 +84,7 @@ Results:
   - `Wickd.Adapters.Ccxt.Tests`: 8 passed.
   - `Wickd.Core.Tests`: 71 passed.
   - `Wickd.Cli.Tests`: 43 passed.
-- Release packages were produced for `Wickd.Core`, `Wickd.Adapters.Ccxt`, and `Wickd.Cli`.
+- Release packages were produced for `Wickd.Core`, `Wickd.Adapters.Ccxt`, and `wickd`.
 - Local tool installation succeeded and exposed the `wickd` command.
 - Validation emitted `NU1900` warnings because NuGet vulnerability metadata could not be loaded from `https://api.nuget.org/v3/index.json`; the commands still completed successfully.
 
@@ -87,5 +92,6 @@ Results:
 
 - This is a breaking rename. No compatibility shim was added for old `WickdBot` namespaces, package IDs, environment variables, JSON roots, or user configuration folders.
 - The physical repository folder may remain `WickdBot`; the technical solution and package names are now `Wickd.*`.
+- CLI users install only the `wickd` tool package; developers can reference `Wickd.Core` and `Wickd.Adapters.Ccxt` as SDK packages.
 - The help usage line currently displays `Wickd.Cli` because System.CommandLine derives the executable display name from the assembly context, but the installed tool command is `wickd`.
 - Existing repo-local agent skill folders still use their historical `wickdbot-*` directory names because those are filesystem tool names, not product assemblies or NuGet packages.
