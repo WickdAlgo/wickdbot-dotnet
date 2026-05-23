@@ -49,13 +49,13 @@ Build the non-strategy foundation for deterministic backtests: validated configu
 Phase 1 validation command:
 
 ```text
-dotnet test WickdBot.slnx
+dotnet test Wickd.slnx
 ```
 
 Current validation:
 
 ```text
-dotnet test .\WickdBot.slnx --no-restore
+dotnet test .\Wickd.slnx --no-restore
 ```
 
 Passed on 2026-05-10 with 33 tests.

@@ -23,7 +23,7 @@ For completed or partially completed phases, replace that with concise bullets d
 List the commands, checks, or review steps that prove the phase is complete.
 
 ```text
-dotnet test WickdBot.slnx
+dotnet test Wickd.slnx
 ```
 
 Record the result when validation has been run.

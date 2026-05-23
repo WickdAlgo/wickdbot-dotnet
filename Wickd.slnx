@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Planning/">
+    <File Path="PLAN.md" />
+  </Folder>
+  <Folder Name="/Planning/Implementation-History/">
+    <File Path="docs/implementation-history/phase-0.md" />
+    <File Path="docs/implementation-history/phase-1.md" />
+    <File Path="docs/implementation-history/phase-2.md" />
+    <File Path="docs/implementation-history/phase-3.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+  </Folder>
+  <Project Path="src/Wickd.Core/Wickd.Core.csproj" />
+  <Project Path="src/Wickd.Adapters.Ccxt/Wickd.Adapters.Ccxt.csproj" />
+  <Project Path="src/Wickd.Cli/Wickd.Cli.csproj" />
+  <Project Path="tests/Wickd.TestSupport/Wickd.TestSupport.csproj" />
+  <Project Path="tests/Wickd.Core.Tests/Wickd.Core.Tests.csproj" />
+  <Project Path="tests/Wickd.Adapters.Ccxt.Tests/Wickd.Adapters.Ccxt.Tests.csproj" />
+  <Project Path="tests/Wickd.Cli.Tests/Wickd.Cli.Tests.csproj" />
+</Solution>

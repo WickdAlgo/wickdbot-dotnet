@@ -6,14 +6,15 @@
         {
           "src": "..",
           "files": [
-            "src/WickdBot/WickdBot.csproj"
+            "src/Wickd.Core/Wickd.Core.csproj",
+            "src/Wickd.Adapters.Ccxt/Wickd.Adapters.Ccxt.csproj"
           ]
         }
       ],
       "dest": "api",
       "filter": "filterConfig.yml",
-      "disableDefaultFilter": true,
-      "includePrivateMembers": true,
+      "disableDefaultFilter": false,
+      "includePrivateMembers": false,
       "memberLayout": "samePage",
       "namespaceLayout": "nested",
       "properties": {
@@ -51,8 +52,8 @@
       "modern"
     ],
     "globalMetadata": {
-      "_appName": "WickdBot",
-      "_appTitle": "WickdBot Docs",
+      "_appName": "WickdAlgo",
+      "_appTitle": "WickdAlgo Docs",
       "_enableSearch": true,
       "_disableContribution": true
     }

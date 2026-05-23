@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <WickdVersion>0.1.0-preview.1</WickdVersion>
+    <Version>$(WickdVersion)</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Authors>WickdAlgo, DevBD1</Authors>
+    <Company>WickdAlgo</Company>
+    <Product>WickdAlgo</Product>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/WickdAlgo/wickd-dotnet</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/WickdAlgo/wickd-dotnet</PackageProjectUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright 2026</Copyright>
+  </PropertyGroup>
+</Project>

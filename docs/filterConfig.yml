@@ -1,5 +1,5 @@
 apiRules:
 - exclude:
-    uidRegex: ^WickdBot\.Tests
+    uidRegex: ^Wickd\.Tests
 - exclude:
-    uidRegex: ^WickdBot\.Properties
+    uidRegex: ^Wickd\.Properties

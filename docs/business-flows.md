@@ -4,7 +4,7 @@ title: Programmatic Business Flows
 
 # Programmatic Business Flows
 
-These diagrams show the currently implemented WickdBot program paths. Phase 2 implements historical fetch, deterministic candle caching, dataset aliases, and cached candle replay. Strategy execution and analysis are still placeholders.
+These diagrams show the currently implemented Wickd program paths. Phase 2 implements historical fetch, deterministic candle caching, dataset aliases, and cached candle replay. Strategy execution and analysis are still placeholders.
 
 ## CLI Command Flow
 
@@ -66,7 +66,7 @@ flowchart TD
 
     C -->|No| I["Resolve exchange client"]
     I --> J{"Exchange supported?"}
-    J -->|No| K["WickdBotDataException"]
+    J -->|No| K["WickdDataException"]
     J -->|Yes| L["IMarketDataClient.FetchCandlesAsync"]
     L --> M["Filter candles to request range"]
     M --> N["Convert ExchangeCandle to Historical CandleEvent"]
@@ -92,7 +92,7 @@ flowchart TD
     J -->|No| K["Convert OHLCV to ExchangeCandle"]
     K --> L["Keep candles inside range"]
     L --> M{"Timestamps advanced?"}
-    M -->|No| N["WickdBotDataException"]
+    M -->|No| N["WickdDataException"]
     M -->|Yes| O["Advance since timestamp"]
     O --> P{"Short page?"}
     P -->|Yes| F
@@ -172,14 +172,14 @@ flowchart TD
 
 ## Related API Reference
 
-- <xref:WickdBot.Program>
-- <xref:WickdBot.Data.HistoricalDataSource>
-- <xref:WickdBot.Data.IMarketDataClient>
-- <xref:WickdBot.Data.CcxtBinanceMarketDataClient>
-- <xref:WickdBot.Data.HistoricalDataResult>
-- <xref:WickdBot.Data.CandleReplayResult>
-- <xref:WickdBot.Data.DatasetAliasCatalog>
-- <xref:WickdBot.Data.DatasetAlias>
-- <xref:WickdBot.Data.CandleNormalizer>
-- <xref:WickdBot.Data.CandleJsonLines>
-- <xref:WickdBot.Infrastructure.RunRequestFactory>
+- <xref:Wickd.Program>
+- <xref:Wickd.Data.HistoricalDataSource>
+- <xref:Wickd.Data.IMarketDataClient>
+- <xref:Wickd.Data.CcxtBinanceMarketDataClient>
+- <xref:Wickd.Data.HistoricalDataResult>
+- <xref:Wickd.Data.CandleReplayResult>
+- <xref:Wickd.Data.DatasetAliasCatalog>
+- <xref:Wickd.Data.DatasetAlias>
+- <xref:Wickd.Data.CandleNormalizer>
+- <xref:Wickd.Data.CandleJsonLines>
+- <xref:Wickd.Infrastructure.RunRequestFactory>

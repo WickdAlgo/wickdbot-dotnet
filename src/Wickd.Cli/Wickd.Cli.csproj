@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Wickd</RootNamespace>
+    <AssemblyName>Wickd.Cli</AssemblyName>
+    <AssemblyTitle>Wickd.Cli</AssemblyTitle>
+    <Product>WickdAlgo</Product>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>wickd</ToolCommandName>
+    <PackageId>wickd</PackageId>
+    <Description>CLI tool for deterministic backtest plumbing and Smart Money Concepts structure journaling in the WickdAlgo platform.</Description>
+    <PackageReleaseNotes>First public WickdAlgo CLI prerelease with historical fetching, candle cache replay, dataset aliases, structure journaling, and local configuration initialization.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>trading;backtesting;cli;smc</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wickd.Cli.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.defaults.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>True</Pack>
+    </None>
+    <None Update="markets.defaults.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>True</Pack>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wickd.Core\Wickd.Core.csproj" />
+    <ProjectReference Include="..\Wickd.Adapters.Ccxt\Wickd.Adapters.Ccxt.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.7" />
+  </ItemGroup>
+</Project>
