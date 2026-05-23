@@ -4,6 +4,8 @@ WickdAlgo is a C#/.NET 8 trading research platform for deterministic backtest
 plumbing and Smart Money Concepts structure journaling. Its technical codebase
 uses the `Wickd.*` project, package, and namespace family.
 
+Canonical repository: `https://github.com/WickdAlgo/wickd-dotnet`.
+
 The current implementation supports historical candle fetching/caching and
 backtest replay through the `A1 -> B` path:
 

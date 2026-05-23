@@ -202,8 +202,8 @@ public class ConfigurationDistributionTests
         Assert.Equal("Wickd.Adapters.Ccxt", adapterProject.Descendants("PackageId").Single().Value);
         Assert.Equal("0.1.0-preview.1", props.Descendants("WickdVersion").Single().Value);
         Assert.Equal("WickdAlgo, DevBD1", props.Descendants("Authors").Single().Value);
-        Assert.Equal("https://github.com/WickdAlgo/wickd-core", props.Descendants("RepositoryUrl").Single().Value);
-        Assert.Equal("https://github.com/WickdAlgo/wickd-core", props.Descendants("PackageProjectUrl").Single().Value);
+        Assert.Equal("https://github.com/WickdAlgo/wickd-dotnet", props.Descendants("RepositoryUrl").Single().Value);
+        Assert.Equal("https://github.com/WickdAlgo/wickd-dotnet", props.Descendants("PackageProjectUrl").Single().Value);
         Assert.Equal("Apache-2.0", props.Descendants("PackageLicenseExpression").Single().Value);
         Assert.Contains("appsettings.defaults.json", cliProjectText);
         Assert.Contains("markets.defaults.json", cliProjectText);

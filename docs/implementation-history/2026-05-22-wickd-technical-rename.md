@@ -46,7 +46,7 @@ Rename the technical codebase from `WickdBot.*` to `Wickd.*` while keeping `Wick
 - Set first public prerelease package metadata:
   - version `0.1.0-preview.1`;
   - authors `WickdAlgo, DevBD1`;
-  - repository and project URL `https://github.com/WickdAlgo/wickd-core`;
+  - repository and project URL `https://github.com/WickdAlgo/wickd-dotnet`;
   - Apache-2.0 license expression and root `LICENSE` file.
 - Renamed namespaces and technical types from `WickdBot` to `Wickd`, including:
   - `WickdSettings`
